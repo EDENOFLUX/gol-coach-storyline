@@ -1,0 +1,3156 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>故事线决策树 · 预测我的未来分支</title>
+<style>
+  body{font-family:-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;margin:0;background:#16161e;color:#f0f0f0}
+  .wrap{padding:22px;max-width:1040px;margin:0 auto}
+  h1{font-size:18px;font-weight:600;margin:0 0 4px}
+  #tag{color:#b8b8c8;font-size:13px;margin:0 0 14px;line-height:1.5}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:#bbb;margin-bottom:14px}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:11px;height:11px;border-radius:3px;display:inline-block}
+  .d-me{background:#e6b422}.d-route{background:#9b59b6}.d-stage{background:#3498db}.d-alt{background:#e67e22}.d-sim{background:#2ecc71}
+  /* ===== CSS 树 ===== */
+  .tree ul{position:relative;padding-top:14px;margin:0;list-style:none}
+  .tree > ul{padding-top:0}
+  .tree li{position:relative;padding:14px 0 0 30px;list-style:none}
+  .tree li::before{content:'';position:absolute;top:0;left:0;border-left:2px solid #4a4a5a;height:100%}
+  .tree li::after{content:'';position:absolute;top:21px;left:0;border-top:2px solid #4a4a5a;width:30px}
+  .tree li:last-child::before{height:21px}
+  .tree li.collapsed > ul{display:none}
+  .card{border-radius:10px;padding:10px 12px;max-width:440px;border:1px solid #3a3a4a;cursor:pointer;transition:filter .15s}
+  .card:hover{filter:brightness(1.12)}
+  .card.me{background:#3a2f12;border-color:#e6b422}
+  .card.route{background:#2a1f3d;border-color:#9b59b6}
+  .card.route.you{box-shadow:0 0 0 2px #e6b422 inset}
+  .card.stage{background:#16263a;border-color:#3498db}
+  .card.alt{background:#2e2113;border-color:#e67e22;border-style:dashed}
+  .card.sim{background:#16271d;border-color:#2ecc71}
+  .card.red{border-color:#A32D2D}
+  .ch{font-size:14px;font-weight:600;margin-bottom:6px}
+  .age{font-size:11px;font-weight:400;opacity:.7;margin-left:6px}
+  .you-tag{font-size:11px;color:#1a1407;background:#e6b422;border-radius:6px;padding:1px 6px;margin-left:6px}
+  .ci{font-size:12px;line-height:1.5;margin:2px 0;color:#dfe1ea}
+  .ci b{color:#fff;font-weight:600;margin-right:4px}
+  .res{margin-top:6px}
+  .chip{display:inline-block;background:#33334a;color:#cdbcff;border-radius:10px;padding:1px 8px;font-size:11px;margin:2px 4px 2px 0}
+  .echo{font-size:11.5px;line-height:1.5;margin-top:6px;color:#9fe6c2;border-left:2px solid #2ecc71;padding-left:8px}
+  .card.real>.ch{color:#6fb1ff}
+  .from{margin-top:6px;padding:6px 8px;background:#2a2342;border-left:3px solid #b58cff;border-radius:0 6px 6px 0;font-size:11.5px;line-height:1.5}
+  .from b{color:#b58cff;margin-right:4px}
+  .tg{font-size:11px;opacity:.7;margin-top:6px}
+  .mirror-section{margin-top:28px;border-top:1px solid #3a3a4a;padding-top:18px}
+  .mirror-q{font-size:14px;margin-bottom:10px;color:#cdbcff;line-height:1.6}
+  .fig-sel{background:#23232f;color:#e6e6f0;border:1px solid #3a3a4a;border-radius:8px;padding:7px 12px;font-size:13px;min-width:240px;cursor:pointer}
+  .mirror-sim{margin-top:12px}
+  .mirror-score{display:inline-block;font-size:20px;font-weight:700;padding:4px 14px;border-radius:10px;margin-bottom:10px}
+  .mirror-score.good{background:#16271d;color:#2ecc71;border:1px solid #2ecc71}
+  .mirror-score.mid{background:#2a2342;color:#b58cff;border:1px solid #b58cff}
+  .mirror-score.low{background:#2e2113;color:#e67e22;border:1px solid #e67e22}
+  .mirror-cols{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px}
+  .mirror-col{flex:1;min-width:240px;background:#1e1e2a;border:1px solid #3a3a4a;border-radius:10px;padding:10px 12px}
+  .mirror-col b{font-size:13px}
+  .mirror-col ul{margin:6px 0 0;padding-left:18px;font-size:12px;line-height:1.6;color:#dfe1ea}
+  .mirror-ans{font-size:13px;line-height:1.7;margin:8px 0;color:#f0f0f0}
+  .mirror-tree{margin:6px 0}
+  .mirror-note{font-size:11px;color:#9aa;margin-top:8px;line-height:1.6;border-top:1px dashed #3a3a4a;padding-top:8px}
+  .empty{color:#9aa;font-size:13px;padding:8px 0}
+  .cmp-dim{width:100%;border-collapse:collapse;margin:10px 0;font-size:12px}
+  .cmp-dim th,.cmp-dim td{border:1px solid #3a3a4a;padding:5px 9px;text-align:left;vertical-align:top}
+  .cmp-dim th{background:#23232f;color:#cdbcff}
+  .cmp-dim td.dl{color:#9aa;white-space:nowrap}
+  .cmp-dim tr.eq td.mk{color:#2ecc71;font-weight:700;text-align:center}
+  .cmp-dim tr.neq td.mk{color:#e67e22;font-weight:700;text-align:center}
+  .cmp-dim td.me{background:#1e1e2a}
+  .cmp-cols{display:flex;gap:16px;margin-bottom:10px;flex-wrap:wrap}
+  .cmp-col{flex:1;min-width:240px;background:#1e1e2a;border:1px solid #3a3a4a;border-radius:10px;padding:10px 12px}
+  .cmp-h{font-size:13px;font-weight:700;color:#f0f0f0;margin-bottom:6px}
+  .cmp-ul{list-style:none;margin:0;padding:0}
+  .cmp-ul li{border-top:1px dashed #3a3a4a;padding:7px 0}
+  .cmp-ul li:first-child{border-top:none}
+  .cmp-stage{font-size:13px;font-weight:600;color:#5aa9ff;margin-bottom:3px}
+  .cmp-ul .ci{font-size:11px;line-height:1.5;color:#dfe1ea;margin:1px 0}
+  .cmp-ul .age{font-weight:400;color:#9aa;font-size:11px}
+  .hide{display:none}
+  .space-ctrl{display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:12px;color:#bbb;margin-bottom:10px}
+  .space-ctrl select{background:#23232f;color:#e6e6f0;border:1px solid #3a3a4a;border-radius:8px;padding:5px 10px;font-size:12px}
+  .space-ctrl label{display:inline-flex;align-items:center;gap:5px;cursor:pointer}
+  #spaceMap{background:#1b1b26;border:1px solid #3a3a4a;border-radius:10px;padding:4px}
+  .fork-cols{display:flex;gap:16px;flex-wrap:wrap}
+  .fork-col{flex:1;min-width:240px;background:#1e1e2a;border:1px solid #3a3a4a;border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.6;color:#dfe1ea}
+  .fork-col.took{border-color:#3498db}
+  .fork-col.not-took{border-color:#e67e22;border-style:dashed}
+  .fork-col .fc-h{font-size:13px;font-weight:700;margin-bottom:6px}
+  .fork-arrow{font-size:11.5px;color:#9aa;margin-top:6px;line-height:1.6}
+  .sim-wrap{margin:0}
+  .sim-ctrl{display:flex;gap:12px;flex-wrap:wrap;align-items:center;font-size:12px;color:#bbb;margin:6px 0 10px}
+  .sim-ctrl a{color:#7f77dd;cursor:pointer}
+  .sim-ctrl select{background:#23232f;color:#e6e6f0;border:1px solid #3a3a4a;border-radius:8px;padding:4px 8px;font-size:12px}
+  .sim-stat{color:#cdbcff;font-weight:700}
+  .sim-hint{font-size:12px;color:#9aa;line-height:1.6}
+  #simTree{overflow:auto;max-height:72vh;background:#1b1b26;border:1px solid #3a3a4a;border-radius:10px;padding:8px}
+  #simPanel{margin-top:10px}
+  .sim-panel{background:#1e1e2a;border:1px solid #3a3a4a;border-radius:10px;padding:10px 12px;font-size:12.5px;line-height:1.6;color:#e6e6f0}
+  .sim-path{font-size:12px;color:#cdbcff;margin-bottom:8px;line-height:1.7}
+  .sim-arrow{color:#9aa}
+  .sim-row{margin:3px 0}
+  .sim-row b,.sim-peers b,.sim-src b{color:#9fe6c2;margin-right:6px}
+  .sim-src{margin:6px 0;padding:6px 8px;background:#2a2342;border-left:3px solid #b58cff;border-radius:0 6px 6px 0;font-size:11.5px}
+  .sim-ci{color:#dfe1ea;font-size:11px;line-height:1.5}
+  .sim-note{font-size:11px;color:#9aa;margin-top:6px;line-height:1.6}
+  .sim-end{margin-top:8px;padding:8px 10px;border-radius:8px;font-size:12.5px}
+  .sim-end.good{background:#16271d;border:1px solid #2ecc71;color:#c6f2d8}
+  .sim-end.mid{background:#16263a;border:1px solid #3498db;color:#bfe0ff}
+  .sim-end.risk{background:#2e2113;border:1px solid #e67e22;color:#ffd9b0}
+  .sim-end.bad{background:#2a1f1f;border:1px solid #A32D2D;color:#ffc9c9}
+  .sn-now rect{fill:#3a2f12;stroke:#e6b422}
+  .sn-now text{fill:#ffe9a8}
+  .sn-up rect{fill:#16271d;stroke:#2ecc71}
+  .sn-up text{fill:#c6f2d8}
+  .sn-flat rect{fill:#16263a;stroke:#3498db}
+  .sn-flat text{fill:#bfe0ff}
+  .sn-risk rect{fill:#2e2113;stroke:#e67e22}
+  .sn-risk text{fill:#ffd9b0}
+  .sn-bad rect{fill:#2a1f1f;stroke:#A32D2D}
+  .sn-bad text{fill:#ffc9c9}
+  .sn-on rect{stroke-width:2.5}
+  .sn-sub{opacity:.8}
+  .sn-edge{stroke:#4a4a5a}
+  .sn-edge-on{stroke:#e6b422}
+  .sub{font-size:12.5px;color:#9aa;line-height:1.7;margin:2px 0 12px}
+  .bar{display:flex;gap:12px;flex-wrap:wrap;align-items:center;font-size:12px;color:#bbb;margin:0 0 10px}
+  .bar a{color:#7f77dd;cursor:pointer}
+  .bar a.on{color:#e6b422;font-weight:700}
+  .bar select{background:#23232f;color:#e6e6f0;border:1px solid #3a3a4a;border-radius:8px;padding:4px 8px;font-size:12px}
+  .seg{display:inline-flex;gap:10px;align-items:center}
+  .muted{color:#9aa}
+  .figbox{margin-top:22px;border-top:1px solid #3a3a4a;padding-top:16px}
+  .p2-h{font-size:13px;font-weight:700;color:#cdbcff;margin-bottom:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>故事线罗盘</h1>
+  <p class="sub">一个入口：<b>主图 = 我的走向树</b>（根 = 我的真实生平 → 4 层选择 → 结局）；两辅助层 = <b>轴空间</b>（同一批节点的投影）+ <b>节点详情面板</b>。三层<b>单例联动</b>：点一个节点，树高亮路径、轴空间高亮对应点、面板同步出详情。</p>
+  <div class="bar">
+    <span class="stat" id="simStat"></span>
+    <span class="seg"><a id="vTree" class="on" onclick="simView('tree')">🌳 走向树</a><a id="vSpace" onclick="simView('space')">🌌 轴空间</a></span>
+    <a onclick="simReset()">🔁 重开</a>
+    <a onclick="simRandom()">🎲 随机走一条</a>
+    <span class="seg"><span>缩放</span><select id="simZoomSel" onchange="simZoom(this.value)"><option value="1">100%</option><option value="0.75">75%</option><option value="0.5" selected>50%</option><option value="0.35">35%</option></select></span>
+  </div>
+  <div id="simTree"></div>
+  <div id="simSpace" class="hide">
+    <div class="space-ctrl">
+      <span>横轴</span><select id="axX" onchange="simSpaceRender()"></select>
+      <span>纵轴</span><select id="axY" onchange="simSpaceRender()"></select>
+      <span class="muted">● 地标＝抽象活法　■ 选择点＝树的节点　○ 你的点</span>
+    </div>
+    <div id="spaceMap"></div>
+    <div class="mirror-section">
+      <div class="mirror-q">🕰 <b>平行人生回溯</b>：回看过去没走的那条路。</div>
+      <div id="forkOut"></div>
+    </div>
+  </div>
+  <div id="simPanel"></div>
+  <div class="figbox">
+    <div class="p2-h">📚 人物库 · 打开某位人物的「镜像问答 / 对照版」</div>
+    <div class="space-ctrl"><select id="figSel" class="fig-sel" onchange="openFigure(this.value)"><option value="">— 选一位人物 —</option></select></div>
+    <div id="figOut"></div>
+  </div>
+</div>
+<script>
+// =====================================================================
+// 本模板两层结构：
+//   ① ME 树（主导）：根=「现在的我」，向下分叉为「我的可选路线」，每条路线继续递归分支
+//      成我的具体未来。人物只在路线节点上作「类比引用」(echo + resembles)，不是容器。
+//   ② FIGURES 参考库（可下钻）：每位人物是一棵纯生平树（阶段 stage + 替代史 alt），
+//      用于"具体看看这个人当年怎么走的"，不作我的未来容器。
+//
+// 节点字段：
+//   type: me(根) | route(我的路线) | stage(人物真实生平) | alt(如果…) | sim(我的未来·继续分支)
+//   stage/age/situation/choice/output + children(继续分支，可无限嵌套)
+//   route 节点额外：route, title, resembles[], echo, you(你在此)
+// =====================================================================
+
+// ====== ① 我的未来分支预测树（根=现在的我）======
+;
+
+// ====== ② 人物生平参考库（纯生平，可下钻；不作我的未来容器）======
+const FIG_LIB = {
+"王阳明": {
+"era": "明",
+"domain": "哲学家·心学",
+"route": "R2",
+"tags": {
+"institution": "in",
+"multi_line": false,
+"divergence": "deep",
+"valley": "produce",
+"output_form": "both",
+"ending": "legacy",
+"nd_proxy": "deep"
+},
+"arc": "贬谪低谷→龙场悟道→平叛立功→立言传世",
+"stages": [
+{
+"id": "wyw-1",
+"stage": "少年才名·科举挫折",
+"age": "早年",
+"situation": "才名早显却连遭科举挫折，又撞宦官刘瑾专权",
+"choice": "上疏救援被陷友人，不附权阉",
+"output": "被廷杖、贬谪贵州龙场"
+},
+{
+"id": "wyw-2",
+"stage": "龙场悟道·向内立法则",
+"age": "37岁",
+"situation": "龙场驿丞任上身处瘴疠、生死一线",
+"choice": "静极中悟「心即理」「圣人之道吾性自足」",
+"output": "确立向内立法则根基（知行合一）"
+},
+{
+"id": "wyw-3",
+"stage": "立功立言·收口",
+"age": "中晚年",
+"situation": "凭自立法则平宁王之乱、晚年讲学著书",
+"choice": "把「致良知」落进 realpolitik 与民生；著《传习录》",
+"output": "心学成一代显学，立言立功双收"
+}
+]
+},
+"老子": {
+"era": "春秋",
+"domain": "哲学家",
+"route": "R2",
+"tags": {
+"institution": "out",
+"multi_line": false,
+"divergence": "deep",
+"valley": "produce",
+"output_form": "words",
+"ending": "legacy",
+"nd_proxy": "deep"
+},
+"arc": "乱世看尽兴亡→不争而自成→著《道德经》",
+"stages": [
+{
+"id": "lz-1",
+"stage": "守藏史·看尽兴亡",
+"age": "中年",
+"situation": "周室衰微，任守藏室史，亲见礼崩乐坏",
+"choice": "冷眼观兴衰，不投身权力",
+"output": "积累对「道」的体认"
+},
+{
+"id": "lz-2",
+"stage": "出关著书",
+"age": "晚年",
+"situation": "见周室将亡，骑牛西去",
+"choice": "应关令尹喜之请，留书而去",
+"output": "五千言《道德经》立言"
+},
+{
+"id": "lz-3",
+"stage": "不争而自成",
+"age": "身后",
+"situation": "不留门派、不立组织",
+"choice": "任其流传",
+"output": "道家之源，千年立言传世"
+}
+]
+},
+"苏轼": {
+"era": "北宋",
+"domain": "文豪·诗词书画",
+"route": "R2/R4",
+"tags": {
+"institution": "in",
+"multi_line": false,
+"divergence": "broad",
+"valley": "produce",
+"output_form": "words",
+"ending": "legacy",
+"nd_proxy": "sensitive"
+},
+"arc": "少年成名→乌台诗案贬谪→黄州高产→远贬仍作立言",
+"stages": [
+{
+"id": "ss-1",
+"stage": "少年成名·不站队",
+"age": "21岁",
+"situation": "中制科名动京师，却既不附新党也不附旧党",
+"choice": "持独立立场",
+"output": "因乌台诗案下狱、贬黄州"
+},
+{
+"id": "ss-2",
+"stage": "黄州贬谪·低谷高产",
+"age": "44岁",
+"situation": "贬黄州、生活困顿、行动受限",
+"choice": "垦荒东坡、躬耕自养 + 持续创作",
+"output": "前后赤壁赋、念奴娇，低谷反成创作巅峰"
+},
+{
+"id": "ss-3",
+"stage": "远贬仍作·立言传世",
+"age": "晚年",
+"situation": "历徽宗朝短暂起复又远贬岭南海南",
+"choice": "随遇而安、继续创作与办学",
+"output": "唐宋八大家、词开豪放一派"
+}
+]
+},
+"司马迁": {
+"era": "西汉",
+"domain": "史学家",
+"route": "R2",
+"tags": {
+"institution": "in",
+"multi_line": false,
+"divergence": "deep",
+"valley": "produce",
+"output_form": "words",
+"ending": "legacy",
+"nd_proxy": "deep"
+},
+"arc": "继父志为太史→宫刑之辱→隐忍著《史记》",
+"stages": [
+{
+"id": "sm-1",
+"stage": "继父志·为太史令",
+"age": "壮年",
+"situation": "承父遗命，任太史令，开始修史",
+"choice": "接下修史重任",
+"output": "系统搜集史料"
+},
+{
+"id": "sm-2",
+"stage": "宫刑之辱·被体制否定",
+"age": "中年",
+"situation": "李陵之祸牵连，被处宫刑",
+"choice": "不殉道、忍辱负重",
+"output": "将羞辱转为著史动力"
+},
+{
+"id": "sm-3",
+"stage": "隐忍著《史记》",
+"age": "晚年",
+"situation": "幽愤中续写",
+"choice": "以著述证自身",
+"output": "《史记》立言传世，以史证清白"
+}
+]
+},
+"陶渊明": {
+"era": "东晋",
+"domain": "诗人",
+"route": "R3",
+"tags": {
+"institution": "out",
+"multi_line": false,
+"divergence": "deep",
+"valley": "withdraw",
+"output_form": "words",
+"ending": "legacy",
+"nd_proxy": "sensitive"
+},
+"arc": "厌浊为官→不为五斗米折腰归隐→诗文自娱",
+"stages": [
+{
+"id": "ty-1",
+"stage": "出仕厌浊",
+"age": "壮年",
+"situation": "数度为官，不堪吏职虚伪",
+"choice": "勉强应付",
+"output": "内心渐生去意"
+},
+{
+"id": "ty-2",
+"stage": "不为五斗米折腰",
+"age": "中年",
+"situation": "郡遣督邮至，令束带相见",
+"choice": "解印去职，归隐田园",
+"output": "脱离体制，寻平衡位置"
+},
+{
+"id": "ty-3",
+"stage": "归隐诗文自娱",
+"age": "晚年",
+"situation": "躬耕自给，偶有匮乏",
+"choice": "在田园中找平衡",
+"output": "诗文传世，平衡共生"
+}
+]
+},
+"屈原": {
+"era": "战国",
+"domain": "诗人·政治家",
+"route": "R5",
+"tags": {
+"institution": "in",
+"multi_line": false,
+"divergence": "deep",
+"valley": "fight",
+"output_form": "words",
+"ending": "destroy",
+"nd_proxy": "rigid"
+},
+"arc": "忠谏被疏→流放行吟→投江殉道",
+"stages": [
+{
+"id": "qy-1",
+"stage": "忠谏被疏",
+"age": "中年",
+"situation": "主张联齐抗秦，遭贵族谗言",
+"choice": "坚持理想不妥协",
+"output": "被楚怀王疏远"
+},
+{
+"id": "qy-2",
+"stage": "流放行吟",
+"age": "晚年",
+"situation": "郢都陷落，悲愤填膺",
+"choice": "行吟泽畔",
+"output": "《离骚》等立言"
+},
+{
+"id": "qy-3",
+"stage": "投江殉道",
+"age": "终",
+"situation": "国破理想灭",
+"choice": "以死证清白",
+"output": "毁灭（红线警示）"
+}
+]
+},
+"韩信": {
+"era": "西汉",
+"domain": "军事家",
+"route": "R1",
+"tags": {
+"institution": "in",
+"multi_line": false,
+"divergence": "deep",
+"valley": "produce",
+"output_form": "deeds",
+"ending": "destroy",
+"nd_proxy": "none"
+},
+"arc": "胯下受辱投汉→拜将立功→押明主被诛",
+"stages": [
+{
+"id": "hx-1",
+"stage": "胯下受辱·投汉",
+"age": "青年",
+"situation": "贫贱受辱，初不被刘邦重用",
+"choice": "离楚归汉",
+"output": "经萧何举荐拜大将"
+},
+{
+"id": "hx-2",
+"stage": "拜将立功",
+"age": "壮年",
+"situation": "楚汉相争，统兵制胜",
+"choice": "明修栈道暗度陈仓等",
+"output": "定鼎汉室，功盖天下"
+},
+{
+"id": "hx-3",
+"stage": "押明主被诛",
+"age": "中年",
+"situation": "功高震主，被吕后猜忌",
+"choice": "把价值押给单一明主",
+"output": "被杀，湮没（红线警示）"
+}
+]
+},
+"庄子": {
+"era": "战国",
+"domain": "哲学家",
+"route": "R2",
+"tags": {
+"institution": "out",
+"multi_line": false,
+"divergence": "deep",
+"valley": "produce",
+"output_form": "words",
+"ending": "legacy",
+"nd_proxy": "deep"
+},
+"arc": "漆园吏→逍遥齐物→著《庄子》",
+"stages": [
+{
+"id": "zhuang-1",
+"stage": "漆园吏",
+"age": "中年",
+"situation": "小官为生，不慕荣利",
+"choice": "拒楚威王相邀",
+"output": "守住自由"
+},
+{
+"id": "zhuang-2",
+"stage": "逍遥齐物",
+"age": "中年",
+"situation": "在乱世中向内立法则",
+"choice": "齐物我、等生死",
+"output": "精神自由自足"
+},
+{
+"id": "zhuang-3",
+"stage": "著《庄子》",
+"age": "晚年",
+"situation": "言说体系成熟",
+"choice": "著书立言",
+"output": "道家双璧之一，传世"
+}
+]
+},
+"李白": {
+"era": "唐",
+"domain": "诗仙",
+"route": "R2/R3",
+"tags": {
+"institution": "in",
+"multi_line": false,
+"divergence": "broad",
+"valley": "withdraw",
+"output_form": "words",
+"ending": "legacy",
+"nd_proxy": "sensitive"
+},
+"arc": "入长安供奉→赐金放还→诗酒立言",
+"stages": [
+{
+"id": "lb-1",
+"stage": "入长安供奉",
+"age": "中年",
+"situation": "奉诏入京，欲向外立功",
+"choice": "仰天大笑出门去",
+"output": "仅任翰林供奉，未获实权"
+},
+{
+"id": "lb-2",
+"stage": "赐金放还",
+"age": "中年",
+"situation": "遭谗见疏",
+"choice": "不恋权位，翩然离去",
+"output": "回落 R2/R3"
+},
+{
+"id": "lb-3",
+"stage": "诗酒立言",
+"age": "晚年",
+"situation": "漫游纵酒",
+"choice": "以诗立法则",
+"output": "诗仙立言传世，功名未竟"
+}
+]
+},
+"诸葛亮": {
+"era": "三国",
+"domain": "政治家·军事家",
+"route": "R2",
+"tags": {
+"institution": "in",
+"multi_line": false,
+"divergence": "deep",
+"valley": "produce",
+"output_form": "both",
+"ending": "legacy",
+"nd_proxy": "deep"
+},
+"arc": "隆中对立法则→鞠躬尽瘁立功→星落五丈原",
+"stages": [
+{
+"id": "zg-1",
+"stage": "隆中对·向内立法则",
+"age": "青年",
+"situation": "隐居隆中，纵论天下",
+"choice": "提出三分天下方略",
+"output": "战略框架成型"
+},
+{
+"id": "zg-2",
+"stage": "鞠躬尽瘁·向外立功",
+"age": "壮年",
+"situation": "辅刘备建蜀，六出祁山",
+"choice": "事必躬亲",
+"output": "立功未尽"
+},
+{
+"id": "zg-3",
+"stage": "星落五丈原",
+"age": "54岁",
+"situation": "积劳成疾",
+"choice": "死而后已",
+"output": "《出师表》立言传世（内核稳，立功受限）"
+}
+]
+},
+"玄奘": {
+"era": "唐",
+"domain": "佛学家·翻译家",
+"route": "R2",
+"tags": {
+"institution": "out",
+"multi_line": false,
+"divergence": "deep",
+"valley": "produce",
+"output_form": "words",
+"ending": "legacy",
+"nd_proxy": "deep"
+},
+"arc": "求法西行→十七年译经→唯识立言",
+"stages": [
+{
+"id": "xz-1",
+"stage": "求法西行",
+"age": "青年",
+"situation": "不满诸说纷纭，私发长安",
+"choice": "孤身赴天竺",
+"output": "万里孤征"
+},
+{
+"id": "xz-2",
+"stage": "取经译经",
+"age": "中年",
+"situation": "归国后主持译场",
+"choice": "十七年专注译经",
+"output": "千余卷经论"
+},
+{
+"id": "xz-3",
+"stage": "唯识立言",
+"age": "晚年",
+"situation": "建构体系",
+"choice": "著《成唯识论》等",
+"output": "法相宗立言传世"
+}
+]
+},
+"杜甫": {
+"era": "唐",
+"domain": "诗圣",
+"route": "R2",
+"tags": {
+"institution": "in",
+"multi_line": false,
+"divergence": "deep",
+"valley": "produce",
+"output_form": "words",
+"ending": "legacy",
+"nd_proxy": "sensitive"
+},
+"arc": "困顿流离→诗史立法则→立言传世",
+"stages": [
+{
+"id": "df-1",
+"stage": "困顿流离",
+"age": "中年",
+"situation": "安史之乱，颠沛流离",
+"choice": "随波未降志",
+"output": "亲历时代苦难"
+},
+{
+"id": "df-2",
+"stage": "诗史立法则",
+"age": "中晚年",
+"situation": "以诗记史",
+"choice": "把时代写成「诗史」",
+"output": "向内立法则"
+},
+{
+"id": "df-3",
+"stage": "立言传世",
+"age": "身后",
+"situation": "境遇极差仍作",
+"choice": "持续书写",
+"output": "诗圣立言传世"
+}
+]
+},
+"嵇康": {
+"era": "魏晋",
+"domain": "名士·思想家",
+"route": "R5",
+"tags": {
+"institution": "out",
+"multi_line": false,
+"divergence": "deep",
+"valley": "fight",
+"output_form": "words",
+"ending": "destroy",
+"nd_proxy": "rigid"
+},
+"arc": "竹林名士→绝交山涛→刑场广陵散",
+"stages": [
+{
+"id": "jk-1",
+"stage": "竹林名士",
+"age": "早年",
+"situation": "才名冠世，不与司马氏合作",
+"choice": "拒仕、打铁自娱",
+"output": "《声无哀乐论》立言"
+},
+{
+"id": "jk-2",
+"stage": "绝交山涛",
+"age": "中年",
+"situation": "友人举荐其为官",
+"choice": "写《与山巨源绝交书》明志",
+"output": "触怒司马氏"
+},
+{
+"id": "jk-3",
+"stage": "刑场广陵散",
+"age": "约40",
+"situation": "被构陷下狱",
+"choice": "临刑奏《广陵散》赴死",
+"output": "毁灭（红线警示）"
+}
+]
+},
+"商鞅": {
+"era": "战国",
+"domain": "改革家",
+"route": "R1/R5",
+"tags": {
+"institution": "in",
+"multi_line": false,
+"divergence": "deep",
+"valley": "produce",
+"output_form": "deeds",
+"ending": "destroy",
+"nd_proxy": "none"
+},
+"arc": "入秦变法→立功押君→君死被清算",
+"stages": [
+{
+"id": "sh-1",
+"stage": "入秦变法",
+"age": "中年",
+"situation": "投秦孝公，说以强国之术",
+"choice": "立木为信，推行变法",
+"output": "秦国骤强"
+},
+{
+"id": "sh-2",
+"stage": "立功押君",
+"age": "壮年",
+"situation": "权倾朝野",
+"choice": "把价值押给单一君主",
+"output": "功成但结怨宗室"
+},
+{
+"id": "sh-3",
+"stage": "君死被清算",
+"age": "晚年",
+"situation": "孝公卒，惠王立",
+"choice": "无法转圜",
+"output": "车裂，毁灭（复合红线）"
+}
+]
+},
+"达芬奇": {
+"era": "文艺复兴",
+"domain": "博学家·艺术/科学/工程",
+"route": "R2/R4",
+"tags": {
+"institution": "out",
+"multi_line": true,
+"divergence": "broad",
+"valley": "produce",
+"output_form": "both",
+"ending": "legacy",
+"nd_proxy": "multi"
+},
+"arc": "私生子边缘→跨域博学家→13000页笔记立体系→千年立言",
+"stages": [
+{
+"id": "dv-1",
+"stage": "边缘起点·学徒",
+"age": "0-30",
+"situation": "私生子非婚生不能继承，只能走实务技艺",
+"choice": "入韦罗基奥作坊，艺术-工程复合训练",
+"output": "绘画+工程双修底子"
+},
+{
+"id": "dv-2",
+"stage": "自立与宫廷周游",
+"age": "30-64",
+"situation": "自立工作室却接单不毕，辗转多宫廷无恒定庇护",
+"choice": "广接委托+13000页笔记自立法则，不强行收口",
+"output": "《最后的晚餐》《蒙娜丽莎》+工程草图"
+},
+{
+"id": "dv-3",
+"stage": "未竟但范式改写",
+"age": "64-67",
+"situation": "晚年受法王邀赴法，身体渐衰",
+"choice": "把体系交付笔记而非强收口",
+"output": "仅约15幅画存世，笔记五百年后仍被解读"
+}
+]
+},
+"梵高": {
+"era": "现代·荷",
+"domain": "画家",
+"route": "R5",
+"tags": {
+"institution": "out",
+"multi_line": false,
+"divergence": "deep",
+"valley": "produce",
+"output_form": "words",
+"ending": "destroy",
+"nd_proxy": "sensitive"
+},
+"arc": "生前不被认可→燃烧式创作→自毁身后立言",
+"stages": [
+{
+"id": "fg-1",
+"stage": "生前不被认可",
+"age": "壮年",
+"situation": "仅售出一幅画，靠弟弟接济",
+"choice": "持续作画不迎合",
+"output": "贫病交加"
+},
+{
+"id": "fg-2",
+"stage": "燃烧式创作",
+"age": "晚年",
+"situation": "精神濒溃仍高产",
+"choice": "向内燃烧式表达",
+"output": "向日葵等杰作"
+},
+{
+"id": "fg-3",
+"stage": "自毁·身后立言",
+"age": "37",
+"situation": "枪伤不治",
+"choice": "以毁灭证清白",
+"output": "身后画价连城（红线警示）"
+}
+]
+},
+"图灵": {
+"era": "现代·英",
+"domain": "数学家·计算机之父",
+"route": "R5",
+"tags": {
+"institution": "in",
+"multi_line": false,
+"divergence": "deep",
+"valley": "produce",
+"output_form": "deeds",
+"ending": "destroy",
+"nd_proxy": "multi"
+},
+"arc": "解码立功→被体制迫害→自毁",
+"stages": [
+{
+"id": "tm-1",
+"stage": "解码立功",
+"age": "壮年",
+"situation": "二战破译德军密码",
+"choice": "奠基计算机与 AI",
+"output": "扭转战局，功在社稷"
+},
+{
+"id": "tm-2",
+"stage": "被体制迫害",
+"age": "中年",
+"situation": "因性取向遭起诉 chemical castration",
+"choice": "接受羞辱性处置",
+"output": "被体制反噬"
+},
+{
+"id": "tm-3",
+"stage": "自毁",
+"age": "41",
+"situation": "不堪其辱",
+"choice": "食毒苹果自尽",
+"output": "毁灭（红线：被押外体系反噬）"
+}
+]
+},
+"卡夫卡": {
+"era": "现代·奥",
+"domain": "作家",
+"route": "R1",
+"tags": {
+"institution": "in",
+"multi_line": false,
+"divergence": "deep",
+"valley": "withdraw",
+"output_form": "words",
+"ending": "obscure",
+"nd_proxy": "sensitive"
+},
+"arc": "昼职夜写→不发表押外→遗嘱焚稿",
+"stages": [
+{
+"id": "kf-1",
+"stage": "昼职夜写",
+"age": "壮年",
+"situation": "保险局职员，夜里写作",
+"choice": "只写不发表",
+"output": "大量未刊稿"
+},
+{
+"id": "kf-2",
+"stage": "不发表·押外未成",
+"age": "中年",
+"situation": "价值押给「未来认可」",
+"choice": "不向外释放",
+"output": "近乎湮没"
+},
+{
+"id": "kf-3",
+"stage": "遗嘱焚稿",
+"age": "41",
+"situation": "临终",
+"choice": "嘱友人布罗德焚毁全部稿件",
+"output": "友人违嘱出版才传世（红线：不释放则湮没）"
+}
+]
+},
+"鲁迅": {
+"era": "现代·中",
+"domain": "文学家·思想家",
+"route": "R2",
+"tags": {
+"institution": "out",
+"multi_line": false,
+"divergence": "deep",
+"valley": "produce",
+"output_form": "words",
+"ending": "legacy",
+"nd_proxy": "deep"
+},
+"arc": "弃医从文→批判国民性立法则→立言传世",
+"stages": [
+{
+"id": "lx-1",
+"stage": "弃医从文",
+"age": "青年",
+"situation": "日留学，悟治病不如治心",
+"choice": "转文学",
+"output": "方向确立"
+},
+{
+"id": "lx-2",
+"stage": "批判国民性·立法则",
+"age": "中年",
+"situation": "新文化运动，针砭时弊",
+"choice": "向内立法则（立人）",
+"output": "《狂人日记》等"
+},
+{
+"id": "lx-3",
+"stage": "立言传世",
+"age": "晚年",
+"situation": "持续杂文与小说",
+"choice": "以笔为投枪",
+"output": "现代文学奠基，立言传世"
+}
+]
+},
+"爱因斯坦": {
+"era": "现代·美",
+"domain": "物理学家",
+"route": "R2",
+"tags": {
+"institution": "out",
+"multi_line": false,
+"divergence": "deep",
+"valley": "produce",
+"output_form": "both",
+"ending": "legacy",
+"nd_proxy": "multi"
+},
+"arc": "专利局蛰伏→相对论立法则→范式改写立功",
+"stages": [
+{
+"id": "aie-1",
+"stage": "专利局蛰伏",
+"age": "26",
+"situation": "伯尔尼专利局小职员，业余思考",
+"choice": "在边缘中深耕",
+"output": "R4 蓄势"
+},
+{
+"id": "aie-2",
+"stage": "相对论·立法则",
+"age": "26-36",
+"situation": "奇迹年发文",
+"choice": "向内立法则（时空观）",
+"output": "狭义/广义相对论"
+},
+{
+"id": "aie-3",
+"stage": "范式改写立功",
+"age": "中晚年",
+"situation": "声名鹊起，影响物理百年",
+"choice": "向外立功+持续立言",
+"output": "立言立功，范式改写"
+}
+]
+},
+"荣格": {
+"era": "现代·瑞",
+"domain": "心理学家",
+"route": "R2",
+"tags": {
+"institution": "out",
+"multi_line": false,
+"divergence": "deep",
+"valley": "produce",
+"output_form": "words",
+"ending": "legacy",
+"nd_proxy": "deep"
+},
+"arc": "与弗洛伊德决裂→分析心理立法则→立言传世",
+"stages": [
+{
+"id": "rj-1",
+"stage": "师门决裂",
+"age": "中年",
+"situation": "与弗洛伊德分歧加深",
+"choice": "脱离师门，自立门户",
+"output": "失去体制庇护"
+},
+{
+"id": "rj-2",
+"stage": "分析心理·立法则",
+"age": "中年",
+"situation": "向内探索集体无意识",
+"choice": "自建体系",
+"output": "分析心理学框架"
+},
+{
+"id": "rj-3",
+"stage": "立言传世",
+"age": "晚年",
+"situation": "著述讲学",
+"choice": "持续立言",
+"output": "心理学立言传世"
+}
+]
+},
+"弗里达·卡罗": {
+"era": "现代·墨",
+"domain": "画家",
+"route": "R2/R5",
+"tags": {
+"institution": "out",
+"multi_line": false,
+"divergence": "deep",
+"valley": "produce",
+"output_form": "words",
+"ending": "legacy",
+"nd_proxy": "sensitive"
+},
+"arc": "车祸创伤→把痛苦画成作品→立言传世",
+"stages": [
+{
+"id": "fk-1",
+"stage": "车祸创伤",
+"age": "18",
+"situation": " buses 事故，终身带痛",
+"choice": "卧床开始作画",
+"output": "痛苦即素材"
+},
+{
+"id": "fk-2",
+"stage": "把痛苦画成作品",
+"age": "壮年",
+"situation": "数十次手术仍创作",
+"choice": "向内立法则（自画像）",
+"output": "独特画风立言"
+},
+{
+"id": "fk-3",
+"stage": "立言传世",
+"age": "47",
+"situation": "身心早损",
+"choice": "以画证存在",
+"output": "画作传世（带 R5 体质）"
+}
+]
+},
+"马拉拉": {
+"era": "当代·巴",
+"domain": "教育活动家",
+"route": "R2",
+"tags": {
+"institution": "out",
+"multi_line": false,
+"divergence": "deep",
+"valley": "produce",
+"output_form": "both",
+"ending": "legacy",
+"nd_proxy": "none"
+},
+"arc": "被枪击→更向外立功→诺奖立言",
+"stages": [
+{
+"id": "ml-1",
+"stage": "为女权发声",
+"age": "少年",
+"situation": "博客记录塔利班禁学",
+"choice": "公开主张教育权",
+"output": "遭塔利班枪击"
+},
+{
+"id": "ml-2",
+"stage": "被枪击·反转向 R2",
+"age": "15",
+"situation": "头部中弹幸存",
+"choice": "不恐惧，更向外立功",
+"output": "国际声量"
+},
+{
+"id": "ml-3",
+"stage": "诺奖立言",
+"age": "17",
+"situation": "康复后持续倡导",
+"choice": "建基金会、著书",
+"output": "最年轻诺奖，立功+立言"
+}
+]
+},
+"路遥": {
+"era": "现代·中",
+"domain": "作家",
+"route": "R2",
+"tags": {
+"institution": "in",
+"multi_line": false,
+"divergence": "deep",
+"valley": "produce",
+"output_form": "words",
+"ending": "legacy",
+"nd_proxy": "deep"
+},
+"arc": "困顿写作→《平凡的世界》立法则→茅盾奖立言",
+"stages": [
+{
+"id": "ly-1",
+"stage": "困顿写作",
+"age": "壮年",
+"situation": "清贫，蜗居创作",
+"choice": "以命相搏写作",
+"output": "健康透支"
+},
+{
+"id": "ly-2",
+"stage": "平凡的世界·立法则",
+"age": "中年",
+"situation": "六年磨一剑",
+"choice": "向内立法则（平凡人的尊严）",
+"output": "经典长篇"
+},
+{
+"id": "ly-3",
+"stage": "茅盾奖立言",
+"age": "42",
+"situation": "获奖不久病逝",
+"choice": "以作品证自身",
+"output": "立言传世"
+}
+]
+},
+"村上春树": {
+"era": "现代·日",
+"domain": "作家",
+"route": "R2/R3",
+"tags": {
+"institution": "out",
+"multi_line": false,
+"divergence": "deep",
+"valley": "produce",
+"output_form": "words",
+"ending": "legacy",
+"nd_proxy": "sensitive"
+},
+"arc": "弃商写文→个人风格立法则→立言平衡共生",
+"stages": [
+{
+"id": "cm-1",
+"stage": "弃商写文",
+"age": "29",
+"situation": "开爵士酒吧，忽萌写念",
+"choice": "卖掉店，专职写作",
+"output": "《且听风吟》出道"
+},
+{
+"id": "cm-2",
+"stage": "个人风格·立法则",
+"age": "中年",
+"situation": "形成疏离却温柔的语调",
+"choice": "向内立法则",
+"output": "独特文风"
+},
+{
+"id": "cm-3",
+"stage": "立言平衡共生",
+"age": "晚年",
+"situation": "长跑、翻译、写作并行",
+"choice": "不极致，求稳",
+"output": "立言传世，平衡共生"
+}
+]
+},
+"安妮·弗兰克": {
+"era": "现代·德",
+"domain": "日记作者",
+"route": "R2",
+"tags": {
+"institution": "out",
+"multi_line": false,
+"divergence": "deep",
+"valley": "produce",
+"output_form": "words",
+"ending": "legacy",
+"nd_proxy": "sensitive"
+},
+"arc": "密室避难→写日记立法则→立言传世",
+"stages": [
+{
+"id": "af-1",
+"stage": "密室避难",
+"age": "13",
+"situation": "纳粹迫害，全家藏身阁楼",
+"choice": "隐忍等待",
+"output": "与世隔绝两年"
+},
+{
+"id": "af-2",
+"stage": "写日记·立法则",
+"age": "13-15",
+"situation": "以写作守住对人性的信念",
+"choice": "向内立法则",
+"output": "《安妮日记》"
+},
+{
+"id": "af-3",
+"stage": "立言传世",
+"age": "15",
+"situation": "被捕病逝于集中营",
+"choice": "日记被父出版",
+"output": "生命早逝但立言传世"
+}
+]
+},
+"乔布斯": {
+"era": "当代·美",
+"domain": "企业家·苹果",
+"route": "R2",
+"tags": {
+"institution": "out",
+"multi_line": false,
+"divergence": "deep",
+"valley": "produce",
+"output_form": "both",
+"ending": "legacy",
+"nd_proxy": "multi"
+},
+"arc": "被自己公司放逐→回 R2 立法则→回归立功",
+"stages": [
+{
+"id": "jb-1",
+"stage": "被放逐·押外失败",
+"age": "30",
+"situation": "权力斗争被董事会逐出苹果",
+"choice": "另起炉灶（NeXT/Pixar）",
+"output": "R1 摔落"
+},
+{
+"id": "jb-2",
+"stage": "回 R2·立法则",
+"age": "中年",
+"situation": "NeXT 被苹果收购，回归",
+"choice": "向内立法则（极简+体验）",
+"output": "重掌产品方向"
+},
+{
+"id": "jb-3",
+"stage": "回归立功",
+"age": "晚年",
+"situation": "iPod/iPhone 重塑行业",
+"choice": "向外立功",
+"output": "立言立功（i 时代）"
+}
+]
+},
+"赫尔曼·黑塞": {
+"era": "现代·德",
+"domain": "作家",
+"route": "R2",
+"tags": {
+"institution": "out",
+"multi_line": false,
+"divergence": "deep",
+"valley": "produce",
+"output_form": "words",
+"ending": "legacy",
+"nd_proxy": "sensitive"
+},
+"arc": "与时代撕扯→《荒原狼》立法则→诺奖立言",
+"stages": [
+{
+"id": "hs-1",
+"stage": "与时代撕扯",
+"age": "中年",
+"situation": "一战前后精神危机",
+"choice": "向内探寻",
+"output": "心理低谷"
+},
+{
+"id": "hs-2",
+"stage": "荒原狼·立法则",
+"age": "中年",
+"situation": "写出个体与时代撕扯",
+"choice": "把撕裂写成体系",
+"output": "《荒原狼》"
+},
+{
+"id": "hs-3",
+"stage": "诺奖立言",
+"age": "晚年",
+"situation": "持续著述",
+"choice": "立言",
+"output": "诺贝尔文学奖，传世"
+}
+]
+},
+"太宰治": {
+"era": "现代·日",
+"domain": "作家",
+"route": "R5",
+"tags": {
+"institution": "out",
+"multi_line": false,
+"divergence": "deep",
+"valley": "collapse",
+"output_form": "words",
+"ending": "destroy",
+"nd_proxy": "sensitive"
+},
+"arc": "多重自杀未遂→《人间失格》自白→投水毁灭",
+"stages": [
+{
+"id": "td-1",
+"stage": "多重自杀未遂",
+"age": "壮年",
+"situation": "数次寻死未果",
+"choice": "以写作宣泄",
+"output": "《斜阳》等"
+},
+{
+"id": "td-2",
+"stage": "人间失格·自白",
+"age": "38",
+"situation": "自传式绝笔",
+"choice": "把耻部展览",
+"output": "传世却悲"
+},
+{
+"id": "td-3",
+"stage": "投水毁灭",
+"age": "39",
+"situation": "与情人殉情",
+"choice": "以死证清白",
+"output": "毁灭（红线）"
+}
+]
+},
+"三毛": {
+"era": "现代·中",
+"domain": "作家",
+"route": "R5/R2",
+"tags": {
+"institution": "out",
+"multi_line": false,
+"divergence": "broad",
+"valley": "produce",
+"output_form": "words",
+"ending": "destroy",
+"nd_proxy": "sensitive"
+},
+"arc": "向外流浪立言→荷西死后孤绝→自毁",
+"stages": [
+{
+"id": "sm3-1",
+"stage": "向外流浪立言",
+"age": "壮年",
+"situation": "撒哈拉、中南美游历写作",
+"choice": "把流浪写成作品",
+"output": "R2 立言高产"
+},
+{
+"id": "sm3-2",
+"stage": "荷西死后孤绝",
+"age": "中年",
+"situation": "丈夫潜水意外身亡",
+"choice": "陷入孤绝",
+"output": "滑向 R5"
+},
+{
+"id": "sm3-3",
+"stage": "自毁",
+"age": "48",
+"situation": "久病抑郁",
+"choice": "以丝袜自尽",
+"output": "毁灭（R2 立言但滑 R5 警示）"
+}
+]
+},
+"张国荣": {
+"era": "当代·中",
+"domain": "歌手·演员",
+"route": "R5",
+"tags": {
+"institution": "out",
+"multi_line": false,
+"divergence": "deep",
+"valley": "collapse",
+"output_form": "deeds",
+"ending": "destroy",
+"nd_proxy": "sensitive"
+},
+"arc": "极致向外舞台→向内孤绝→自毁",
+"stages": [
+{
+"id": "zgl-1",
+"stage": "极致向外舞台",
+"age": "壮年",
+"situation": "歌影双绝，光芒万丈",
+"choice": "向外绽放",
+"output": "时代偶像"
+},
+{
+"id": "zgl-2",
+"stage": "向内孤绝",
+"age": "中年",
+"situation": "光芒与孤独撕裂",
+"choice": "不示弱",
+"output": "内耗累积"
+},
+{
+"id": "zgl-3",
+"stage": "自毁",
+"age": "46",
+"situation": "抑郁缠身",
+"choice": "一跃而下",
+"output": "毁灭（红线：向外光芒的内里孤绝）"
+}
+]
+},
+"孙悟空": {
+"era": "神话",
+"domain": "英雄·斗战胜佛",
+"route": "R2",
+"tags": {
+"institution": "out",
+"multi_line": false,
+"divergence": "deep",
+"valley": "produce",
+"output_form": "both",
+"ending": "legacy",
+"nd_proxy": "multi"
+},
+"arc": "大闹天宫押外失败→取经向内立法则→斗战胜佛",
+"stages": [
+{
+"id": "swk-1",
+"stage": "大闹天宫·押外失败",
+"age": "神话",
+"situation": "自封齐天大圣，对抗天庭",
+"choice": "把价值押给外部认可",
+"output": "被压五行山（R1 摔落）"
+},
+{
+"id": "swk-2",
+"stage": "取经·向内立法则",
+"age": "神话",
+"situation": "保唐僧西行，收心降魔",
+"choice": "把本事用于守护",
+"output": "向内立法则"
+},
+{
+"id": "swk-3",
+"stage": "斗战胜佛·立功立言",
+"age": "神话",
+"situation": "功成",
+"choice": "受封",
+"output": "立言立功（成佛）"
+}
+]
+},
+"哈姆雷特": {
+"era": "虚构·莎",
+"domain": "王子·悲剧",
+"route": "R1/R5",
+"tags": {
+"institution": "in",
+"multi_line": false,
+"divergence": "deep",
+"valley": "fight",
+"output_form": "deeds",
+"ending": "destroy",
+"nd_proxy": "sensitive"
+},
+"arc": "父仇延宕→押外复仇框架→同归于尽",
+"stages": [
+{
+"id": "hml-1",
+"stage": "父仇延宕",
+"age": "青年",
+"situation": "父王被杀，母改嫁叔父",
+"choice": "犹豫不决",
+"output": "时机错失"
+},
+{
+"id": "hml-2",
+"stage": "押外复仇框架",
+"age": "中年",
+"situation": "把价值押给「复仇正义」",
+"choice": "装疯试探",
+"output": "误杀多人"
+},
+{
+"id": "hml-3",
+"stage": "同归于尽",
+"age": "终",
+"situation": "决斗毒剑",
+"choice": "以死证清白",
+"output": "毁灭（红线：延宕+押外）"
+}
+]
+},
+"堂吉诃德": {
+"era": "虚构·西",
+"domain": "骑士·文学",
+"route": "R2",
+"tags": {
+"institution": "out",
+"multi_line": false,
+"divergence": "broad",
+"valley": "produce",
+"output_form": "words",
+"ending": "legacy",
+"nd_proxy": "sensitive"
+},
+"arc": "荒诞中立法则→向外「立功」→精神自立立言",
+"stages": [
+{
+"id": "dqh-1",
+"stage": "荒诞中立法则",
+"age": "老年",
+"situation": "读骑士小说入迷，自认骑士",
+"choice": "以自己的一套法则行事",
+"output": "向内立法则"
+},
+{
+"id": "dqh-2",
+"stage": "向外「立功」",
+"age": "老年",
+"situation": "游侠冒险，屡战屡败",
+"choice": "把信念落到行动",
+"output": "现实落败但精神自立"
+},
+{
+"id": "dqh-3",
+"stage": "立言·文学不朽",
+"age": "身后",
+"situation": "临终醒悟",
+"choice": "被塞万提斯写成书",
+"output": "文学不朽"
+}
+]
+},
+"简·爱": {
+"era": "虚构·英",
+"domain": "家庭教师·叙事者",
+"route": "R2",
+"tags": {
+"institution": "in",
+"multi_line": false,
+"divergence": "deep",
+"valley": "produce",
+"output_form": "words",
+"ending": "legacy",
+"nd_proxy": "sensitive"
+},
+"arc": "寄人篱下不依附→平等自尊立法则→自立立言",
+"stages": [
+{
+"id": "ja-1",
+"stage": "寄人篱下不依附",
+"age": "少女",
+"situation": "舅家受虐，孤儿院艰难",
+"choice": "守住尊严",
+"output": "自立根基"
+},
+{
+"id": "ja-2",
+"stage": "平等自尊·立法则",
+"age": "青年",
+"situation": "与罗切斯特相爱却拒当情妇",
+"choice": "不依附任何人",
+"output": "向内立法则"
+},
+{
+"id": "ja-3",
+"stage": "自立立言",
+"age": "中年",
+"situation": "继承遗产、重返",
+"choice": "平等结合",
+"output": "叙事者自立，情感稳"
+}
+]
+},
+"西西弗斯": {
+"era": "虚构·神话",
+"domain": "哲人原型",
+"route": "R2",
+"tags": {
+"institution": "out",
+"multi_line": false,
+"divergence": "deep",
+"valley": "produce",
+"output_form": "words",
+"ending": "legacy",
+"nd_proxy": "deep"
+},
+"arc": "永罚推石→意义自赋→想象幸福",
+"stages": [
+{
+"id": "xsf-1",
+"stage": "永罚推石",
+"age": "神话",
+"situation": "众神罚其推石上山",
+"choice": "持续推",
+"output": "无外部结局"
+},
+{
+"id": "xsf-2",
+"stage": "意义自赋",
+"age": "神话",
+"situation": "在劳作中认出意义",
+"choice": "向内立法则",
+"output": "加缪「应当想象西西弗幸福」"
+},
+{
+"id": "xsf-3",
+"stage": "立言·哲学原型",
+"age": "身后",
+"situation": "被哲学书写",
+"choice": "成为 R2 纯原型",
+"output": "意义不靠外部结局"
+}
+]
+},
+"蝙蝠侠": {
+"era": "虚构·美",
+"domain": "义警·哥谭",
+"route": "R5/R2",
+"tags": {
+"institution": "out",
+"multi_line": false,
+"divergence": "deep",
+"valley": "fight",
+"output_form": "deeds",
+"ending": "legacy",
+"nd_proxy": "none"
+},
+"arc": "父母被害→自苦证清白向外立功→永在R5边缘",
+"stages": [
+{
+"id": "btm-1",
+"stage": "父母被害",
+"age": "童年",
+"situation": "小巷目睹双亲被杀",
+"choice": "立誓复仇",
+"output": "执念起点"
+},
+{
+"id": "btm-2",
+"stage": "自苦证清白·向外立功",
+"age": "壮年",
+"situation": "多年训练守护哥谭",
+"choice": "以暗夜与自苦证清白",
+"output": "立功但向内自毁倾向"
+},
+{
+"id": "btm-3",
+"stage": "永在R5边缘",
+"age": "终身",
+"situation": "不杀原则与创伤纠缠",
+"choice": "持续守护",
+"output": "哥谭守护，个人永在红线边缘"
+}
+]
+},
+"琪亚娜·卡斯兰娜": {
+"era": "虚构·崩坏3",
+"domain": "女武神·救世",
+"route": "R2",
+"tags": {
+"institution": "out",
+"multi_line": false,
+"divergence": "deep",
+"valley": "produce",
+"output_form": "both",
+"ending": "legacy",
+"nd_proxy": "multi"
+},
+"arc": "被世界崩坏→为美好而战立法则→终焉救世",
+"stages": [
+{
+"id": "qyn-1",
+"stage": "被世界崩坏",
+"age": "少女",
+"situation": "故乡崩坏、同伴离散",
+"choice": "不放弃",
+"output": "R1 摔落感"
+},
+{
+"id": "qyn-2",
+"stage": "为美好而战·立法则",
+"age": "青年",
+"situation": "在绝望中确立信念",
+"choice": "「为世界上所有美好而战」",
+"output": "向内立法则"
+},
+{
+"id": "qyn-3",
+"stage": "终焉救世·立功",
+"age": "终",
+"situation": "对抗终焉律者",
+"choice": "牺牲自我救世",
+"output": "立言立功（救世）"
+}
+]
+},
+"维特": {
+"era": "虚构·德",
+"domain": "少年·悲剧",
+"route": "R5",
+"tags": {
+"institution": "out",
+"multi_line": false,
+"divergence": "deep",
+"valley": "collapse",
+"output_form": "words",
+"ending": "destroy",
+"nd_proxy": "sensitive"
+},
+"arc": "情感困顿→外向求解受挫→以死证情感清白→毁灭",
+"stages": [
+{
+"id": "wt-1",
+"stage": "情感困顿",
+"age": "少年",
+"situation": "爱上已有所属的绿蒂，求而不得",
+"choice": "压抑情感，转为内耗",
+"output": "陷入执念"
+},
+{
+"id": "wt-2",
+"stage": "出走·外向求解受挫",
+"age": "青年",
+"situation": "离城赴任公使馆，又因出身被贵族圈子排斥",
+"choice": "试图靠外部身份与事业摆脱情感困局",
+"output": "外部认可落空，退回更深的绝望"
+},
+{
+"id": "wt-3",
+"stage": "以死证清白",
+"age": "青年",
+"situation": "绝望至极",
+"choice": "以自杀证情感纯度",
+"output": "毁灭（红线）"
+}
+]
+},
+"鸣人": {
+"era": "虚构·火影",
+"domain": "忍者·英雄",
+"route": "R2",
+"tags": {
+"institution": "out",
+"multi_line": false,
+"divergence": "deep",
+"valley": "produce",
+"output_form": "both",
+"ending": "legacy",
+"nd_proxy": "multi"
+},
+"arc": "被村落排斥→不放弃立法则→七代目立功",
+"stages": [
+{
+"id": "mr-1",
+"stage": "被村落排斥",
+"age": "少年",
+"situation": "九尾人柱力，众人避之",
+"choice": "把价值押给外部认可（摔落）",
+"output": "R1 起点"
+},
+{
+"id": "mr-2",
+"stage": "不放弃·立法则",
+"age": "少年",
+"situation": "在否定中确立「我绝不放弃」",
+"choice": "向内立法则",
+"output": "赢得同伴"
+},
+{
+"id": "mr-3",
+"stage": "七代目·立功",
+"age": "青年",
+"situation": "忍界大战救世",
+"choice": "向外立功",
+"output": "立言立功（火影）"
+}
+]
+},
+"浮士德": {
+"era": "虚构·德",
+"domain": "学者·文学",
+"route": "R1/R2",
+"tags": {
+"institution": "out",
+"multi_line": false,
+"divergence": "deep",
+"valley": "produce",
+"output_form": "both",
+"ending": "legacy",
+"nd_proxy": "deep"
+},
+"arc": "与梅菲斯特押外→持续行动赎回→灵魂得救",
+"stages": [
+{
+"id": "fsd-1",
+"stage": "押外交易",
+"age": "老年",
+"situation": "与魔鬼赌灵魂",
+"choice": "把价值押给外部力量",
+"output": "R1 起步"
+},
+{
+"id": "fsd-2",
+"stage": "持续行动·赎回",
+"age": "终",
+"situation": "在体验中找回意义",
+"choice": "「你真美啊，请停一停」",
+"output": "向内立法则"
+},
+{
+"id": "fsd-3",
+"stage": "灵魂得救",
+"age": "终",
+"situation": "天堂接纳",
+"choice": "靠行动赎回",
+"output": "redeem（回 R2 复杂样本）"
+}
+]
+},
+"匹诺曹": {
+"era": "虚构·意",
+"domain": "木偶·童话",
+"route": "R2/R4",
+"tags": {
+"institution": "out",
+"multi_line": false,
+"divergence": "deep",
+"valley": "produce",
+"output_form": "deeds",
+"ending": "legacy",
+"nd_proxy": "none"
+},
+"arc": "木偶迂回成长→救父立功→成真男孩",
+"stages": [
+{
+"id": "pc-1",
+"stage": "木偶迂回",
+"age": "童话",
+"situation": "任性出走，屡遇险",
+"choice": "在试错中成长",
+"output": "R4 迂回"
+},
+{
+"id": "pc-2",
+"stage": "救父立功",
+"age": "童话",
+"situation": "入鲸腹救父",
+"choice": "向外立功证自身",
+"output": "成熟"
+},
+{
+"id": "pc-3",
+"stage": "成真男孩",
+"age": "童话",
+"situation": "善良勇敢终获承认",
+"choice": "成为真人",
+"output": "立言（成真）"
+}
+]
+},
+"孔子": {
+"era": "春秋",
+"domain": "思想家·儒家",
+"route": "R2",
+"tags": {
+"institution": "out",
+"multi_line": false,
+"divergence": "deep",
+"valley": "produce",
+"output_form": "both",
+"ending": "legacy",
+"nd_proxy": "deep"
+},
+"arc": "周游列国求用十四年不得→退而删述六经、授徒→立言垂世",
+"stages": [
+{
+"id": "kz-1",
+"stage": "早年·求仕与办学",
+"age": "早年",
+"situation": "鲁国小吏出身，才学渐显，欲以礼乐之道用于世",
+"choice": "聚徒讲学，并出仕鲁国（中都宰→司寇）",
+"output": "政绩初显，但触犯贵族利益"
+},
+{
+"id": "kz-2",
+"stage": "周游列国·求用受阻",
+"age": "55–68岁",
+"situation": "堕三都失败、鲁国不用，率弟子周游列国十四年",
+"choice": "一路求见诸侯、陈说王道，屡遭困厄（陈蔡绝粮）仍不降格",
+"output": "未被任何一国重用——押外这条路线走不通"
+},
+{
+"id": "kz-3",
+"stage": "退而删述·向内立言",
+"age": "晚年",
+"situation": "归鲁，知时不可为，不再求仕",
+"choice": "删《诗》《书》、订《礼》《乐》、作《春秋》，授徒三千",
+"output": "儒家体系成型，立言垂世两千余年"
+}
+]
+},
+"王维": {
+"era": "唐",
+"domain": "诗人·画家",
+"route": "R3",
+"tags": {
+"institution": "in",
+"multi_line": false,
+"divergence": "deep",
+"valley": "withdraw",
+"output_form": "both",
+"ending": "legacy",
+"nd_proxy": "sensitive"
+},
+"arc": "少年得名入仕→安史乱中被迫受伪职→辋川半官半隐，诗画自守",
+"stages": [
+{
+"id": "wwei-1",
+"stage": "少年得名·入仕",
+"age": "早年",
+"situation": "少年即以诗、乐名动长安，二十余岁中进士",
+"choice": "入朝为官，同时以诗画自遣",
+"output": "仕途有起落，名声日隆"
+},
+{
+"id": "wwei-2",
+"stage": "安史之乱·被迫受伪职",
+"age": "中年",
+"situation": "安禄山陷长安，被拘洛阳、迫授伪官，乱后几遭清算",
+"choice": "不殉节、不硬抗，乱后以降职自处，转心向禅",
+"output": "政治生命受损，但保住了性命与创作"
+},
+{
+"id": "wwei-3",
+"stage": "辋川半隐·平衡共生",
+"age": "中晚年",
+"situation": "官至尚书右丞，半官半隐于辋川别业",
+"choice": "不追极致功名，以山水诗画立身",
+"output": "诗画双绝传世——R3 平衡共生的样板"
+}
+]
+},
+"范仲淹": {
+"era": "北宋",
+"domain": "政治家·文学家",
+"route": "R2",
+"tags": {
+"institution": "in",
+"multi_line": false,
+"divergence": "deep",
+"valley": "fight",
+"output_form": "both",
+"ending": "legacy",
+"nd_proxy": "rigid"
+},
+"arc": "三度被贬仍敢言→主持庆历新政失败外放→以「先忧后乐」立言",
+"stages": [
+{
+"id": "fzy-1",
+"stage": "寒门苦读·入仕敢谏",
+"age": "早年",
+"situation": "幼年丧父、断齑画粥苦读，入仕后直言敢谏",
+"choice": "屡上疏触怒权贵，被贬仍不改口",
+"output": "以直声闻名，同僚戏称「三光」"
+},
+{
+"id": "fzy-2",
+"stage": "主持新政·遭反扑",
+"age": "中年",
+"situation": "西北御西夏有功后入朝，主持庆历新政",
+"choice": "推行整顿吏治的激进改革",
+"output": "新政一年余即遭守旧派反扑失败，再度外放"
+},
+{
+"id": "fzy-3",
+"stage": "外放立言·收口",
+"age": "晚年",
+"situation": "新政失败后历任地方，兴学、修堤、著文",
+"choice": "把「先天下之忧而忧」写进《岳阳楼记》，以文立法则",
+"output": "立言传世，成士大夫精神范式"
+}
+]
+},
+"李时珍": {
+"era": "明",
+"domain": "医药学家",
+"route": "R2",
+"tags": {
+"institution": "out",
+"multi_line": false,
+"divergence": "deep",
+"valley": "produce",
+"output_form": "words",
+"ending": "legacy",
+"nd_proxy": "deep"
+},
+"arc": "科举三度不第→转行医采药→二十七年著《本草纲目》",
+"stages": [
+{
+"id": "lsz-1",
+"stage": "科举不第·转向行医",
+"age": "早年",
+"situation": "出身医家，父望其科举入仕，却三度落第",
+"choice": "弃科举，专心行医、研读本草",
+"output": "以医术立身，渐有名声"
+},
+{
+"id": "lsz-2",
+"stage": "行医采药·见旧本草错漏",
+"age": "中年",
+"situation": "行医中发现历代本草多有错漏、分类混乱",
+"choice": "决定重编一部本草，跋涉山川、亲采亲验",
+"output": "积累大量一手药物资料"
+},
+{
+"id": "lsz-3",
+"stage": "廿七载著书·不慕官位",
+"age": "晚年",
+"situation": "历时二十七年、三易其稿；曾被荐入太医院一年即辞归",
+"choice": "不求官位，只求书成",
+"output": "《本草纲目》传世——长蛰后立言"
+}
+]
+},
+"徐霞客": {
+"era": "明",
+"domain": "地理学家·旅行家",
+"route": "R2",
+"tags": {
+"institution": "out",
+"multi_line": false,
+"divergence": "deep",
+"valley": "produce",
+"output_form": "words",
+"ending": "legacy",
+"nd_proxy": "multi"
+},
+"arc": "弃科举功名→布衣游历三十年→著《徐霞客游记》",
+"stages": [
+{
+"id": "xxk-1",
+"stage": "少年志游·不慕科举",
+"age": "早年",
+"situation": "出身书香门第，却厌科举、好山水",
+"choice": "不应科举，以「丈夫当朝碧海而暮苍梧」自许",
+"output": "遍游名山，无官无职"
+},
+{
+"id": "xxk-2",
+"stage": "三十年远游·深入西南",
+"age": "中年",
+"situation": "游历大半个中国，晚岁深入西南考察石灰岩地貌",
+"choice": "以布衣之身自筹旅费、亲历险境（数度遇盗、绝粮）",
+"output": "留下大量实地考察记录"
+},
+{
+"id": "xxk-3",
+"stage": "病归著述",
+"age": "晚年",
+"situation": "双脚致残，被人送回江阴",
+"choice": "卧床整理游记手稿",
+"output": "《徐霞客游记》传世，地理学价值极高"
+}
+]
+},
+"曹雪芹": {
+"era": "清",
+"domain": "小说家",
+"route": "R2",
+"tags": {
+"institution": "out",
+"multi_line": false,
+"divergence": "deep",
+"valley": "produce",
+"output_form": "words",
+"ending": "legacy",
+"nd_proxy": "sensitive"
+},
+"arc": "家道中落、潦倒→批阅十载著《红楼梦》",
+"stages": [
+{
+"id": "cxq-1",
+"stage": "锦衣少年·家道骤落",
+"age": "早年",
+"situation": "出身江宁织造世家，少年富贵；十余岁时家族被抄没",
+"choice": "随家迁京，潦倒而居",
+"output": "从钟鸣鼎食跌入举家食粥"
+},
+{
+"id": "cxq-2",
+"stage": "困顿中构思写作",
+"age": "中年",
+"situation": "居北京西郊，卖画、赊酒为生",
+"choice": "把家族盛衰写成一部小说，披阅十载、增删五次",
+"output": "《红楼梦》前八十回基本成形"
+},
+{
+"id": "cxq-3",
+"stage": "贫病未竟",
+"age": "晚年",
+"situation": "子殇、贫病交加，书未定稿",
+"choice": "以残稿付世（后由他人续补）",
+"output": "《红楼梦》成中国小说巅峰——困顿中立言"
+}
+]
+},
+"王夫之": {
+"era": "明末清初",
+"domain": "思想家",
+"route": "R4",
+"tags": {
+"institution": "out",
+"multi_line": false,
+"divergence": "deep",
+"valley": "withdraw",
+"output_form": "words",
+"ending": "legacy",
+"nd_proxy": "rigid"
+},
+"arc": "举兵抗清失败→拒仕清廷、隐居著述四十年→船山遗书",
+"stages": [
+{
+"id": "wfz-1",
+"stage": "举兵抗清·失败流亡",
+"age": "早年",
+"situation": "明亡后举兵抗清，兵败",
+"choice": "拒降、拒剃发，转投南明永历朝",
+"output": "抗清无成，流亡湘西"
+},
+{
+"id": "wfz-2",
+"stage": "拒仕隐居·穷困著述",
+"age": "中年",
+"situation": "清廷定鼎，屡拒征召，隐姓埋名居石船山",
+"choice": "四十余年闭门著书，以「六经责我开生面」自任",
+"output": "成书百余种，思想体系庞大"
+},
+{
+"id": "wfz-3",
+"stage": "身后显学",
+"age": "晚年",
+"situation": "一生著作几未刊行，近于湮没",
+"choice": "将手稿托付后人（后由曾孙刊刻《船山遗书》）",
+"output": "晚清以降被追认为大儒——长期蛰伏后立言"
+}
+]
+},
+"苏格拉底": {
+"era": "古希腊",
+"domain": "哲学家",
+"route": "R5",
+"tags": {
+"institution": "out",
+"multi_line": false,
+"divergence": "deep",
+"valley": "fight",
+"output_form": "words",
+"ending": "destroy",
+"nd_proxy": "rigid"
+},
+"arc": "诘问城邦树敌→受审被判死刑→拒逃饮鸩，以死证清白（红线）",
+"stages": [
+{
+"id": "sgl-1",
+"stage": "诘问雅典·树敌众多",
+"age": "中年",
+"situation": "以「助产术」诘问雅典人、戳穿伪知，树敌众多",
+"choice": "坚持不停哲思、不做妥协",
+"output": "被以「不敬神、败坏青年」起诉"
+},
+{
+"id": "sgl-2",
+"stage": "受审申辩",
+"age": "七十岁",
+"situation": "五百人陪审团判其有罪，随后又判死刑",
+"choice": "申辩中拒绝求饶、拒绝流放，坚持「未经省察的人生不值得过」",
+"output": "被判死刑"
+},
+{
+"id": "sgl-3",
+"stage": "拒逃饮鸩",
+"age": "临刑",
+"situation": "友人安排越狱，弟子劝其逃走",
+"choice": "以「守法」自证清白，拒绝逃亡，从容饮鸩",
+"output": "以死证清白——R5 红线经典样本"
+}
+]
+},
+"斯宾诺莎": {
+"era": "荷兰·17世纪",
+"domain": "哲学家",
+"route": "R2",
+"tags": {
+"institution": "out",
+"multi_line": false,
+"divergence": "deep",
+"valley": "produce",
+"output_form": "words",
+"ending": "legacy",
+"nd_proxy": "deep"
+},
+"arc": "被逐出教门→磨镜片为生、独立著述→《伦理学》传世",
+"stages": [
+{
+"id": "sbs-1",
+"stage": "质疑教义·被逐",
+"age": "二十三岁",
+"situation": "在阿姆斯特丹犹太社区质疑神学正统",
+"choice": "拒绝为换取留籍而妥协，接受「破门令」",
+"output": "被彻底驱逐、失去一切社会关系"
+},
+{
+"id": "sbs-2",
+"stage": "隐居磨镜·独立著述",
+"age": "中年",
+"situation": "以打磨光学镜片为生，先后拒海德堡大学教席（以免受制于神学）",
+"choice": "不依附任何机构或教派，只求思想自由",
+"output": "完成《伦理学》《神学政治论》"
+},
+{
+"id": "sbs-3",
+"stage": "身后出版·成典范",
+"age": "晚年",
+"situation": "生前仅匿名出版少量著作，四十五岁因肺病早逝",
+"choice": "以几何学方式写完《伦理学》，托友人身后出版",
+"output": "《伦理学》传世——被放逐后自建体系的样板"
+}
+]
+},
+"蒙田": {
+"era": "法国·16世纪",
+"domain": "随笔家",
+"route": "R3",
+"tags": {
+"institution": "in",
+"multi_line": false,
+"divergence": "broad",
+"valley": "withdraw",
+"output_form": "words",
+"ending": "legacy",
+"nd_proxy": "sensitive"
+},
+"arc": "退隐书斋写随笔→两任波尔多市长→不追功名，以「我知道什么呢」自处",
+"stages": [
+{
+"id": "mt-1",
+"stage": "出身官宦·退隐书斋",
+"age": "三十八岁",
+"situation": "出身富有的法官世家，见官场与宗教战争之残酷",
+"choice": "卖掉法官职位，退隐城堡塔楼书斋",
+"output": "开始写《随笔集》，自问「我是怎样的人」"
+},
+{
+"id": "mt-2",
+"stage": "被推为市长",
+"age": "中年",
+"situation": "波尔多瘟疫与内战期间被市民两度推选为市长",
+"choice": "任上尽力调和宗教冲突，但不恋权位、期满即退",
+"output": "以「不极端」的处世立身"
+},
+{
+"id": "mt-3",
+"stage": "退隐增订随笔",
+"age": "晚年",
+"situation": "退隐后持续增订《随笔集》",
+"choice": "不以著作求显达，以「我知道什么」的怀疑立准则",
+"output": "《随笔集》开创随笔文体——R3 平衡样本"
+}
+]
+},
+"陀思妥耶夫斯基": {
+"era": "俄·19世纪",
+"domain": "小说家",
+"route": "R2",
+"tags": {
+"institution": "out",
+"multi_line": false,
+"divergence": "deep",
+"valley": "produce",
+"output_form": "words",
+"ending": "legacy",
+"nd_proxy": "sensitive"
+},
+"arc": "被牵连入狱→死刑假执行→西伯利亚苦役→回来写《罪与罚》",
+"stages": [
+{
+"id": "dsw-1",
+"stage": "参与小组·被捕",
+"age": "二十七岁",
+"situation": "参加空想社会主义小组，1849年被捕",
+"choice": "在狱中不攀供、不作政治投机",
+"output": "被判死刑"
+},
+{
+"id": "dsw-2",
+"stage": "死刑假执行·苦役四年",
+"age": "二十八岁起",
+"situation": "刑场临开枪前一刻宣布改判——一次精神重创",
+"choice": "在西伯利亚苦役营与底层罪犯共处，重估人性与信仰",
+"output": "世界观逆转，积累写作富矿"
+},
+{
+"id": "dsw-3",
+"stage": "回归写作·立言",
+"age": "中晚年",
+"situation": "苦役与流放十年后回彼得堡，与兄办杂志、笔耕还债",
+"choice": "把狱中体验写成《死屋手记》《罪与罚》",
+"output": "成世界文学巅峰——绝境中转立言"
+}
+]
+},
+"尼采": {
+"era": "德·19世纪",
+"domain": "哲学家",
+"route": "R2",
+"tags": {
+"institution": "out",
+"multi_line": false,
+"divergence": "deep",
+"valley": "collapse",
+"output_form": "words",
+"ending": "obscure",
+"nd_proxy": "sensitive"
+},
+"arc": "二十四岁任教授→辞职独立著述→不被时代理解→精神崩溃（警示）",
+"stages": [
+{
+"id": "nz-1",
+"stage": "少年教授·与学院决裂",
+"age": "二十四岁",
+"situation": "极年轻即被聘为巴塞尔大学古典语文学教授",
+"choice": "任教同时写《悲剧的诞生》，与学院正统决裂",
+"output": "在学界被孤立"
+},
+{
+"id": "nz-2",
+"stage": "辞职·独立著述",
+"age": "三十四岁起",
+"situation": "因健康与对学院的不适辞职，此后十年漂泊于阿尔卑斯与意大利",
+"choice": "靠微薄退休金独立写作、自费出版",
+"output": "写成《查拉图斯特拉如是说》等，但几乎无人问津"
+},
+{
+"id": "nz-3",
+"stage": "精神崩溃·身后显名",
+"age": "四十四岁起",
+"situation": "1889年在都灵精神崩溃，此后十余年由家人照料",
+"choice": "（失去自主）著作生前销量极小",
+"output": "身后被追认为先知——高度独立却生前湮没的红线警示"
+}
+]
+},
+"史铁生": {
+"era": "当代·中国",
+"domain": "作家",
+"route": "R2",
+"tags": {
+"institution": "out",
+"multi_line": false,
+"divergence": "deep",
+"valley": "produce",
+"output_form": "words",
+"ending": "legacy",
+"nd_proxy": "sensitive"
+},
+"arc": "插队致病瘫痪→地坛独坐十五年想通→写作立言（痛苦即素材）",
+"stages": [
+{
+"id": "sts-1",
+"stage": "插队·骤然瘫痪",
+"age": "二十一岁",
+"situation": "陕北插队时淋雨引发旧疾，二十一岁双腿瘫痪",
+"choice": "回京，在绝望中反复叩问「要不要活」",
+"output": "数度自杀未遂，跌入最低谷"
+},
+{
+"id": "sts-2",
+"stage": "地坛十五年·向内立法则",
+"age": "二十余至三十余岁",
+"situation": "天天摇着轮椅去地坛，独坐十五年",
+"choice": "想通「死是一件不必急于求成的事」，转以写作为生",
+"output": "《我与地坛》等——把痛苦转成向内立法则"
+},
+{
+"id": "sts-3",
+"stage": "病中持续写作·立言",
+"age": "中晚年",
+"situation": "又患尿毒症，靠透析维持",
+"choice": "在病榻上持续写作，思考生死与信仰",
+"output": "《病隙碎笔》等传世——痛苦即素材的样板"
+}
+]
+},
+"艾米莉·狄金森": {
+"era": "美·19世纪",
+"domain": "诗人",
+"route": "R2",
+"tags": {
+"institution": "out",
+"multi_line": false,
+"divergence": "deep",
+"valley": "withdraw",
+"output_form": "words",
+"ending": "legacy",
+"nd_proxy": "sensitive"
+},
+"arc": "隐居写诗近一千八百首、生前几乎不发表→身后传世",
+"stages": [
+{
+"id": "djs-1",
+"stage": "少女·短暂求学",
+"age": "早年",
+"situation": "出身律师家庭，短暂求学后返家",
+"choice": "逐渐退入家庭与花园，社交圈极小",
+"output": "开始大量写诗"
+},
+{
+"id": "djs-2",
+"stage": "隐居·只写不发",
+"age": "中年",
+"situation": "后期几乎闭门不出，仅以书信与人往来",
+"choice": "终身未正式发表（生前仅约十首匿名刊出），把诗缝成小册自存",
+"output": "留下约一千八百首诗的手稿"
+},
+{
+"id": "djs-3",
+"stage": "身后被发现",
+"age": "身后",
+"situation": "临终嘱妹妹焚毁诗稿（妹妹未遵）",
+"choice": "（失去自主）",
+"output": "1890年代整理出版后成美国最伟大诗人之一——隐退型创作者的样板"
+}
+]
+},
+"约翰·纳什": {
+"era": "美·20世纪",
+"domain": "数学家",
+"route": "R2",
+"tags": {
+"institution": "in",
+"multi_line": false,
+"divergence": "deep",
+"valley": "collapse",
+"output_form": "both",
+"ending": "legacy",
+"nd_proxy": "deep"
+},
+"arc": "二十一岁奠基博弈论→三十岁起精神分裂三十年→晚年奇迹回归获诺奖",
+"stages": [
+{
+"id": "nash-1",
+"stage": "天才青年·奠基博弈论",
+"age": "二十一岁",
+"situation": "在普林斯顿读博，二十一岁写出后来奠定博弈论的论文",
+"choice": "挑战冯·诺依曼的既有框架",
+"output": "获聘 MIT，被视为天才"
+},
+{
+"id": "nash-2",
+"stage": "发病·与疾病共处",
+"age": "三十至六十岁",
+"situation": "三十岁起患精神分裂症，幻觉与妄想缠身，失去学术岗位",
+"choice": "三十年间与幻听共处、缓慢自我修复，未彻底放弃思考",
+"output": "长期无法正常工作，几近湮没"
+},
+{
+"id": "nash-3",
+"stage": "奇迹回归·诺奖",
+"age": "晚年",
+"situation": "症状渐缓，重新进入学界",
+"choice": "接受「带病生活」，持续回到数学",
+"output": "1994年获诺贝尔经济学奖——重度受限后回归的样板"
+}
+]
+},
+"张爱玲": {
+"era": "现代·中国",
+"domain": "作家",
+"route": "R2",
+"tags": {
+"institution": "out",
+"multi_line": false,
+"divergence": "deep",
+"valley": "withdraw",
+"output_form": "words",
+"ending": "legacy",
+"nd_proxy": "sensitive"
+},
+"arc": "沪上盛名→离国漂泊→孤绝写作、晚年独居",
+"stages": [
+{
+"id": "zal-1",
+"stage": "沪上崛起·一夜成名",
+"age": "二十余岁",
+"situation": "沦陷的上海，以《金锁记》《倾城之恋》迅速成名",
+"choice": "在乱世里以冷眼写人情——向内立法则",
+"output": "成为上海最红的作家"
+},
+{
+"id": "zal-2",
+"stage": "离沪漂泊·辗转港美",
+"age": "三十余岁起",
+"situation": "战后因时局与私人关系受非议，离开大陆、先后居香港与美国",
+"choice": "以写作与翻译谋生，不趋时、不回头",
+"output": "处境转孤，创作力渐减"
+},
+{
+"id": "zal-3",
+"stage": "晚年独居·闭门著述",
+"age": "晚年",
+"situation": "定居洛杉矶，频繁搬家、几乎断绝社交",
+"choice": "闭门修订旧作、研究《红楼梦》",
+"output": "作品身后再掀热潮——立言但孤绝"
+}
+]
+},
+"宫崎骏": {
+"era": "现代·日本",
+"domain": "动画导演",
+"route": "R2",
+"tags": {
+"institution": "out",
+"multi_line": false,
+"divergence": "deep",
+"valley": "produce",
+"output_form": "both",
+"ending": "legacy",
+"nd_proxy": "sensitive"
+},
+"arc": "原画师起步→自立工作室→反复「引退又复出」，长年手绘立法则+持续产出",
+"stages": [
+{
+"id": "gqj-1",
+"stage": "动画师起步·积累",
+"age": "二十至三十余岁",
+"situation": "从东映动画原画师做起，参与多部作品",
+"choice": "坚持手绘与「朴素的生命力」路线",
+"output": "成为成熟的原画师、导演"
+},
+{
+"id": "gqj-2",
+"stage": "自立门户·吉卜力",
+"age": "四十余岁",
+"situation": "与高畑勋等创立吉卜力工作室，风险独担",
+"choice": "不走产业化流水线，坚持作者式手绘长片",
+"output": "《龙猫》《千与千寻》等，票房与口碑双收"
+},
+{
+"id": "gqj-3",
+"stage": "反复引退与复出",
+"age": "六十余至八十余岁",
+"situation": "多次宣布引退，又因新念头复出",
+"choice": "与「想画」的冲动和解，不把引退当作必须兑现的承诺",
+"output": "晚年仍持续产出——R2 内核 + R3 节奏"
+}
+]
+},
+"保尔·柯察金": {
+"era": "虚构·苏联文学",
+"domain": "革命者（文学角色）",
+"route": "R2",
+"tags": {
+"institution": "in",
+"multi_line": false,
+"divergence": "deep",
+"valley": "produce",
+"output_form": "both",
+"ending": "legacy",
+"nd_proxy": "rigid"
+},
+"arc": "战场负伤、失明瘫痪→一度想自杀→转而口述写作，以文字「归队」",
+"stages": [
+{
+"id": "bke-1",
+"stage": "投身革命·战场负伤",
+"age": "少年至青年",
+"situation": "出身贫寒，参加红军与内战，头部重伤、右眼失明",
+"choice": "伤退后仍投入筑路等最苦的工作",
+"output": "病情加重、几近瘫痪"
+},
+{
+"id": "bke-2",
+"stage": "病榻·一度想自杀",
+"age": "青年",
+"situation": "双目失明、全身瘫痪，觉得「再不能战斗」",
+"choice": "一度举枪对着自己，最终选择「活下去，让生命有用」",
+"output": "立誓以写作「归队」"
+},
+{
+"id": "bke-3",
+"stage": "口述写作·立言",
+"age": "青年",
+"situation": "在病榻上以硬纸板镂空格手写、后转而口述",
+"choice": "以自身经历写小说，反复改稿",
+"output": "《钢铁是怎样炼成的》传世——身体受限仍立言的样板"
+}
+]
+},
+"基督山伯爵": {
+"era": "虚构·法国文学",
+"domain": "复仇者（文学角色）",
+"route": "R4",
+"tags": {
+"institution": "out",
+"multi_line": false,
+"divergence": "deep",
+"valley": "fight",
+"output_form": "both",
+"ending": "legacy",
+"nd_proxy": "rigid"
+},
+"arc": "被陷害下狱十四年→狱中受教→越狱取宝、迂回重建→复仇后自省放下",
+"stages": [
+{
+"id": "jds-1",
+"stage": "青年船长·被陷害入狱",
+"age": "十九岁",
+"situation": "年轻船长在婚礼上被诬陷为政治犯，冤入伊夫堡",
+"choice": "在狱中从绝望转为学习，拜另一位囚徒为师",
+"output": "十四年牢狱，掌握语言、科学与复仇所需的见识"
+},
+{
+"id": "jds-2",
+"stage": "越狱·取宝·重建身份",
+"age": "三十余岁",
+"situation": "假死后越狱，找到狱友留下的巨额宝藏",
+"choice": "以「基督山伯爵」的身份迂回布局",
+"output": "完成对仇人的清算"
+},
+{
+"id": "jds-3",
+"stage": "复仇之后·放下",
+"age": "四十余岁",
+"situation": "复仇完成，却见无辜者受牵连",
+"choice": "收手，留书「等待与希望」，放走该放的人",
+"output": "从毁灭滑向自省——迂回后守住主体的样本"
+}
+]
+}
+}
+const MY_TAGS = {
+"institution": "out",
+"multi_line": true,
+"divergence": "broad",
+"valley": "produce",
+"output_form": "both",
+"ending": "legacy",
+"route": "R2",
+"nd_proxy": "multi"
+}
+
+// =====================================================================
+
+function esc(s){return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+function figureStageRef(figure, stageId){
+  const f = FIG_LIB && FIG_LIB[figure];
+  if(!f || !f.stages) return null;
+  return (f.stages||[]).find(st=>st.id===stageId) || null;
+}
+function cardHTML(n){
+  const type=n.type||"stage";
+  const tg = n.children&&n.children.length ? '<div class="tg">▾ 有 '+(n.children.length)+' 条下级分支 · 点击展开/收起</div>' : '';
+  let head='';
+  if(type==='me'){ head='<div class="ch">'+esc(n.stage||'')+'<span class="age">'+esc(n.age||'')+'</span></div>'; }
+  else if(type==='real'){ const cur=n.current?' <span class="you-tag">◀ 当前</span>':''; head='<div class="ch">✓ '+esc(n.stage||'')+cur+'</div>'; }
+  else if(type==='route'){ const you=n.you?' <span class="you-tag">◀ 你在此</span>':''; head='<div class="ch">'+esc(n.route||'')+' · '+esc(n.title||'')+you+'</div>'; }
+  else if(type==='alt'){ head='<div class="ch">↪ 如果… '+esc(n.stage||'')+'</div>'; }
+  else if(type==='sim'){ head='<div class="ch">🌱 '+esc(n.stage||'')+'</div>'; }
+  else { head='<div class="ch">'+esc(n.stage||'')+'<span class="age">'+esc(n.age||'')+'</span></div>'; }
+  let body='';
+  if(n.situation) body+='<div class="ci"><b>处境</b>'+esc(n.situation)+'</div>';
+  if(n.choice) body+='<div class="ci"><b>选择</b>'+esc(n.choice)+'</div>';
+  if(n.output) body+='<div class="ci"><b>产出</b>'+esc(n.output)+'</div>';
+  if(n.resembles&&n.resembles.length) body+='<div class="ci res"><b>类比人物</b>'+n.resembles.map(r=>'<span class="chip">'+esc(r)+'</span>').join('')+'</div>';
+  if(n.echo) body+='<div class="echo">⟲ '+esc(n.echo)+'</div>';
+  if(n.from&&n.from.figure){ const m=figureStageRef(n.from.figure,n.from.stageId); if(m){ body+='<div class="from">↳ 模式来源：'+esc(n.from.figure)+' · '+esc(m.stage)+'（'+esc(m.age||'')+'）'+(m.situation?'<div class="ci"><b>其处境</b>'+esc(m.situation)+'</div>':'')+(m.choice?'<div class="ci"><b>其选择</b>'+esc(m.choice)+'</div>':'')+(m.output?'<div class="ci"><b>其产出</b>'+esc(m.output)+'</div>':'')+'</div>'; } }
+  return '<div class="card '+type+(n.you?' you':'')+(n.red?' red':'')+'" onclick="toggleNode(this)">'+head+body+tg+'</div>';
+}
+function buildLI(n){
+  const li=document.createElement('li');
+  li.innerHTML=cardHTML(n);
+  if(n.children&&n.children.length){
+    const ul=document.createElement('ul');
+    n.children.forEach(c=>ul.appendChild(buildLI(c)));
+    li.appendChild(ul);
+  }
+  return li;
+}
+function toggleNode(card){
+  const li=card.parentElement;
+  const ul=li.querySelector(':scope > ul');
+  if(ul) li.classList.toggle('collapsed');
+}
+// =====================================================================
+// 直观树状图（SVG node-link）· 向下 = 时间向前（趋势）
+//   根在上，分支向下铺开；节点颜色=类型，红线=风险；点节点看详情。
+// =====================================================================
+let SVGNODES=[];
+let TREE_MODE='svg';
+const TC={me:{f:'#3a2f12',s:'#e6b422',t:'#ffe9a8'},real:{f:'#16263a',s:'#3498db',t:'#bfe0ff'},
+  route:{f:'#2a1f3d',s:'#9b59b6',t:'#e0d0ff'},sim:{f:'#16271d',s:'#2ecc71',t:'#c6f2d8'},
+  alt:{f:'#2e2113',s:'#e67e22',t:'#ffd9b0'},stage:{f:'#16263a',s:'#3498db',t:'#bfe0ff'}};
+function shortLabel(s){ s=s||''; return s.length>9 ? s.slice(0,9)+'…' : s; }
+function trendOf(n){
+  if(n.red) return {g:'⚠', c:'#A32D2D'};
+  if(n.type==='route'){ if(n.route==='R2') return {g:'↑', c:'#2ecc71'}; if(n.route==='R3'||n.route==='R4') return {g:'→', c:'#3498db'}; if(n.route==='R5') return {g:'↓', c:'#e67e22'}; }
+  if(n.type==='sim') return {g:'·', c:'#2ecc71'};
+  return null;
+}
+function fmtVal(v){ if(typeof v==='boolean') return v?"是":"否"; if(Array.isArray(v)) return v.join("/"); return v; }
+// 以我的真实过去生平为基部（替代写死 MY_TAGS）
+function figureSimilarity(figure){
+  const f=FIG_LIB[figure]; if(!f) return null;
+  const sig=myPastSignature();
+  const disp = v => (v===undefined||v===null) ? "（未标注）" : fmtVal(v);
+  const dims=[["institution","体制位置"],["multi_line","多线并行"],["divergence","发散/专注"],["valley","低谷反应"],["output_form","产出形态"],["ending","结局类型"],["route","人生路线"],["nd_proxy","ND气质"]];
+  let hit=0; const matched=[], differ=[];
+  dims.forEach(d=>{ const k=d[0], lab=d[1];
+    let he = (f.tags && f.tags[k]!==undefined) ? f.tags[k] : undefined;
+    if(he===undefined && k==="route") he = f.route;   // storyline 把 route 存在顶层
+    const meCur = sig.current.tags ? sig.current.tags[k] : MY_TAGS[k];
+    const mePast = sig.past.find(n=>n.tags && String(n.tags[k])===String(he));
+    if(meCur!==undefined && String(meCur)===String(he)){ hit++; matched.push(lab+"="+disp(meCur)+"（你当前）"); }
+    else if(mePast){ hit++; matched.push(lab+"="+disp(he)+"（你"+esc(mePast.age||"")+"阶段曾如此）"); }
+    else { differ.push(lab+"：你(当前)="+disp(meCur)+" / 他="+disp(he)); } });
+  return {score:Math.round(hit/dims.length*100), matched, differ, route:f.route, era:f.era, domain:f.domain};
+}
+function mirrorSimTree(sim){
+  const root=document.createElement('div'); root.className='tree';
+  const ul=document.createElement('ul'); ul.appendChild(buildLI(sim)); root.appendChild(ul);
+  return root.outerHTML;
+}
+function figureMirrorHTML(figure){
+  const f=FIG_LIB[figure]; if(!f) return "";
+  const sp=figureSimilarity(figure);
+  const sim=buildFigureMirror(figure);
+  const simTree = sim ? mirrorSimTree(sim) : "";
+  const scoreCls = sp.score>=75?"good":(sp.score>=50?"mid":"low");
+  const likeTxt = sp.score>=75 ? "——高度同构，尤其"+sp.matched.slice(0,2).join("、")+"，可作强参照。"
+                 : (sp.score>=50 ? "——部分同构，可作参照，但注意差异项。" : "——差异较大，更像「别变成什么样」的反面教材。");
+  let html='<div class="fig-wrap"><div class="fig-h">🔮 人物镜像问答 · '+esc(figure)+'（'+esc(f.era)+'·'+esc(f.domain)+' · 路线 '+esc(f.route)+'）</div>';
+  html+='<div class="mirror-sim"><div class="mirror-score '+scoreCls+'">结构相似度 '+sp.score+'%</div>';
+  html+='<div class="mirror-cols"><div class="mirror-col"><b>🟢 像的地方</b><ul>'+sp.matched.map(m=>'<li>'+esc(m)+'</li>').join('')+'</ul></div>';
+  html+='<div class="mirror-col"><b>🔵 不像的地方</b><ul>'+sp.differ.map(m=>'<li>'+esc(m)+'</li>').join('')+'</ul></div></div>';
+  html+='<div class="mirror-ans"><b>① 你和他像吗？</b> '+esc(figure)+' 与你的结构相似度约 '+sp.score+'%'+esc(likeTxt)+'</div>';
+  html+='<div class="mirror-ans"><b>② 如果我是他，我的未来怎么走？</b></div><div class="mirror-tree">'+simTree+'</div>';
+  html+='<div class="mirror-note">※ 模拟以你的真实过去（'+esc(realsAges())+'）为基部，接上「'+esc(figure)+'」的后续阶段；🌱 节点用「↳ 模式来源」接到他的真实生平。这是反事实推演，不是预言。</div>';
+  html+='</div>';
+  return html;
+}
+function renderFigureMirror(name){
+  const box=document.getElementById('mirrorOut');
+  if(box) box.innerHTML = name ? figureMirrorHTML(name) : '<div class="empty">选择一位人物查看镜像问答</div>';
+}
+// ===== 我与人物对照版：逐维度 + 逐阶段并置（不模拟未来）=====
+function figureCompareHTML(figure){
+  const f=FIG_LIB[figure]; if(!f) return "";
+  const sig=myPastSignature();
+  const sp=figureSimilarity(figure);
+  const disp = v => (v===undefined||v===null) ? "（未标注）" : fmtVal(v);
+  const dims=[["institution","体制位置"],["multi_line","多线并行"],["divergence","发散/专注"],["valley","低谷反应"],["output_form","产出形态"],["ending","结局类型"],["route","人生路线"],["nd_proxy","ND气质"]];
+  let rows="";
+  dims.forEach(d=>{ const k=d[0],lab=d[1];
+    let he = (f.tags && f.tags[k]!==undefined) ? f.tags[k] : undefined;
+    if(he===undefined && k==="route") he = f.route;   // storyline 把 route 存顶层
+    const meCur = sig.current.tags ? sig.current.tags[k] : MY_TAGS[k];
+    const mePast = sig.past.find(n=>n.tags && String(n.tags[k])===String(he));
+    const same = (meCur!==undefined && meCur!==null && String(meCur)===String(he)) || !!mePast;
+    const meShow = (meCur===undefined||meCur===null) ? (mePast?disp(he)+"（"+esc(mePast.age||"")+"曾）":"—") : disp(meCur)+"（当前）";
+    rows+=`<tr class="${same?'eq':'neq'}"><td class="dl">${lab}</td><td class="me">${esc(meShow)}</td><td class="mk">${same?'≈':'≠'}</td><td class="he">${esc(disp(he))}</td></tr>`;
+  });
+  const meAll=(sig.past||[]).concat([sig.current]).filter(Boolean);
+  const meStages=meAll.map(r=>{ const cur=r.current?' <span class="you-tag">◀ 当前</span>':''; return `<li><div class="cmp-stage">${esc(r.stage||"")}${cur}</div>${r.situation?'<div class="ci">处境 '+esc(r.situation)+'</div>':''}${r.output?'<div class="ci">产出 '+esc(r.output)+'</div>':''}</li>`; }).join("");
+  const figStages=(f.stages||[]).map(st=>`<li><div class="cmp-stage">${esc(st.stage||"")} <span class="age">${esc(st.age||"")}</span></div>${st.situation?'<div class="ci">处境 '+esc(st.situation)+'</div>':''}${st.choice?'<div class="ci">选择 '+esc(st.choice)+'</div>':''}${st.output?'<div class="ci">产出 '+esc(st.output)+'</div>':''}</li>`).join("");
+  const scoreCls = sp.score>=75?"good":(sp.score>=50?"mid":"low");
+  let html=`<div class="fig-wrap"><div class="fig-h">⚖️ 我与${esc(figure)}对照（左=我的真实生平，右=他的真实生平；逐维度 + 逐阶段并置，不模拟未来）</div>`;
+  html+=`<div class="mirror-sim"><div class="mirror-score ${scoreCls}">结构相似度 ${sp.score}%</div></div>`;
+  html+=`<table class="cmp-dim"><thead><tr><th>维度</th><th>我（真实过去）</th><th></th><th>${esc(figure)}</th></tr></thead><tbody>${rows}</tbody></table>`;
+  html+=`<div class="cmp-cols"><div class="cmp-col"><div class="cmp-h">✓ 我的真实生平</div><ul class="cmp-ul">${meStages}</ul></div><div class="cmp-col"><div class="cmp-h">📚 ${esc(figure)}真实生平</div><ul class="cmp-ul">${figStages}</ul></div></div>`;
+  html+=`<div class="mirror-note">※ 对照版把你的真实生平（${esc(realsAges())}）与${esc(figure)}的真实生平阶段并排；与「🔮 镜像问答」的区别：这里不推演未来，只看「我们实际各自怎么走的」。逐维 ≈ 越多，相似度越高。</div>`;
+  html+=`</div>`;
+  return html;
+}
+function renderFigureCompare(name){
+  const box=document.getElementById('compareOut');
+  if(box) box.innerHTML = name ? figureCompareHTML(name) : '<div class="empty">选择一位人物查看对照版</div>';
+}
+
+// =====================================================================
+// 可能空间（发散层）· 7 根普适轴张成的活法空间
+//   轴普适（任何活法都得回答这几个问题）→ 地标簇只是空间里的命名点；
+//   用户 / 人物 / 未来分支都是空间里的一个点。轴生成式，非手挑清单。
+//   坐标是设计值(0..1)，非实测；用于看「不同活法各在空间哪个位置」。
+// =====================================================================
+const AXES=[
+  {k:"subsist",  n:"维生方式", lo:"受养",        hi:"自给/交换",        basis:"人类学·生计模式"},
+  {k:"social",   n:"社会单元", lo:"独行",        hi:"联结(家族/社群/科层)", basis:"SDT·关系需要 + 社会学·家户形态"},
+  {k:"geo",      n:"地理",     lo:"定居",        hi:"流动",             basis:"人类学·定居↔游牧"},
+  {k:"meaning",  n:"意义锚",   lo:"照护·关系",   hi:"创造·超越·权力",   basis:"Schwartz·自我超越↔自我增强"},
+  {k:"autonomy", n:"自主",     lo:"依附",        hi:"自足",             basis:"SDT·自主需要"},
+  {k:"change",   n:"求变 / 守成",lo:"守成",      hi:"求变",             basis:"Schwartz·开放变化↔保守"},
+  {k:"tempo",    n:"时间节奏", lo:"匀速",        hi:"冲蛰交替",         basis:"描述性补充"},
+  {k:"intensity",n:"强度",     lo:"低耗可持续",  hi:"高投入",           basis:"描述性补充"}
+];
+const LIFEPATHS=[
+  {n:"农耕定居者", short:"农耕", ax:{subsist:.5,social:.7,geo:.15,meaning:.45,autonomy:.7,change:.2,tempo:.4,intensity:.7},
+   essence:"靠土地与季节活着，产出即口粮。", ending:"平稳自足", cost:"被土地绑定，抗风险弱", day:"日出而作、随季节转。", probe:"找一块地/一个院子，试种一季。"},
+  {n:"游牧迁徙者", short:"游牧", ax:{subsist:.8,social:.3,geo:.9,meaning:.5,autonomy:.85,change:.85,tempo:.5,intensity:.7},
+   essence:"跟着季节或机会移动，轻装活着。", ending:"自由但漂浮", cost:"没有根系，关系与保障薄", day:"收拾行囊、换地方、接活。", probe:"一个月只带一个包生活，试流动性。"},
+  {n:"手艺人", short:"手艺", ax:{subsist:.7,social:.35,geo:.3,meaning:.7,autonomy:.75,change:.35,tempo:.5,intensity:.6},
+   essence:"一门手艺，作品即身份。", ending:"以技立身", cost:"慢产出，收入随口碑波动", day:"上午做、下午修、常年打磨一件东西。", probe:"用两周做完一件能给人看的手作。"},
+  {n:"雇佣职员（科层）", short:"雇佣", ax:{subsist:.2,social:.75,geo:.4,meaning:.4,autonomy:.15,change:.25,tempo:.3,intensity:.65},
+   essence:"在组织里换稳定，按角色活着。", ending:"稳定但替代性高", cost:"自主低、时间被买走", day:"通勤、开会、交 KPI。", probe:"投一份对口岗位，体验一周节奏。"},
+  {n:"家族照护者", short:"照护", ax:{subsist:.15,social:.85,geo:.5,meaning:.2,autonomy:.2,change:.3,tempo:.6,intensity:.7},
+   essence:"以照护他人为核心，家即事业。", ending:"被需要，但自我让位", cost:"自己的产出长期被搁置", day:"围着家人的需要转。", probe:"连续一周把主要精力给一个具体的人。"},
+  {n:"社群共居者", short:"共居", ax:{subsist:.6,social:.9,geo:.35,meaning:.4,autonomy:.55,change:.55,tempo:.45,intensity:.5},
+   essence:"和人共居共事，分担生活。", ending:"抱团取暖", cost:"边界与摩擦成本高", day:"公共厨房、共担家务、轮流值日。", probe:"参加一次共居/共创空间体验营。"},
+  {n:"隐士/退隐者", short:"隐退", ax:{subsist:.75,social:.1,geo:.25,meaning:.8,autonomy:.9,change:.45,tempo:.2,intensity:.25},
+   essence:"退到低社交的角落，向内专注。", ending:"清静自足", cost:"与世界断联，机会稀薄", day:"独处、阅读、极少社交。", probe:"断网独处 3 天，看是否舒展。"},
+  {n:"独立学者", short:"学者", ax:{subsist:.6,social:.3,geo:.5,meaning:.8,autonomy:.8,change:.6,tempo:.35,intensity:.7},
+   essence:"无机构，自己研究、自己发表。", ending:"以学问立身", cost:"无编制保障，需自筹", day:"读、写、改、投稿循环。", probe:"把一篇研究投出去，不等人催。"},
+  {n:"内容创作者", short:"创作", ax:{subsist:.65,social:.55,geo:.6,meaning:.65,autonomy:.6,change:.7,tempo:.6,intensity:.75},
+   essence:"靠作品换关注与收入。", ending:"放大器效应，头部通吃", cost:"平台依赖、算法摆布", day:"选题、拍、剪、发布、看数据。", probe:"连发 7 天内容，看反馈。"},
+  {n:"多重职业者", short:"多重", ax:{subsist:.7,social:.4,geo:.55,meaning:.5,autonomy:.7,change:.8,tempo:.8,intensity:.7},
+   essence:"多份收入拼盘，不押单一路径。", ending:"抗单点风险，但精力分散", cost:"难深挖、身份难说清", day:"上午 A、下午 B、晚上 C。", probe:"同时开两件不同性质的事，跑两周。"},
+  {n:"低耗半退休者", short:"低耗", ax:{subsist:.55,social:.4,geo:.45,meaning:.5,autonomy:.75,change:.6,tempo:.25,intensity:.2},
+   essence:"刻意压低消耗，换可持续的松。", ending:"松弛可持续", cost:"上限低、抗意外弱", day:"少赚少花，大量留白。", probe:"一个月把开销压到最低，试松感。"},
+  {n:"组织攀登者", short:"攀登", ax:{subsist:.15,social:.85,geo:.3,meaning:.7,autonomy:.1,change:.45,tempo:.6,intensity:.85},
+   essence:"沿组织阶梯往上，换权力与位置。", ending:"位高，但绑在系统上", cost:"自主极低、人格被规训", day:"经营关系、争资源、接盘。", probe:"在一个组织里主动争取一个负责位。"},
+  {n:"学徒/受教者", short:"学徒", ax:{subsist:.1,social:.7,geo:.4,meaning:.5,autonomy:.1,change:.35,tempo:.4,intensity:.6},
+   essence:"把自己交给一个师门/体系去学。", ending:"以所学换未来", cost:"当下自主为零、可能被消耗", day:"跟师、打杂、从基础练起。", probe:"拜一个具体的人/课，做满一个月。"},
+  {n:"漂泊边缘者", short:"漂泊", ax:{subsist:.35,social:.2,geo:.9,meaning:.35,autonomy:.5,change:.9,tempo:.7,intensity:.4},
+   essence:"不落体系，随遇而活。", ending:"自由与不稳并存", cost:"保障薄、易坠落", day:"打零工、睡各处、看运气。", probe:"不带计划地过一周，记录体感。"},
+  {n:"修行/信仰者", short:"修行", ax:{subsist:.2,social:.8,geo:.3,meaning:.85,autonomy:.1,change:.25,tempo:.4,intensity:.6},
+   essence:"把意义交给信仰/修行，生活围绕它。", ending:"内心安定", cost:"世俗产出与自由让位", day:"功课、共修、持戒。", probe:"跟一次三日共修/静修营。"}
+];
+const MY_POINTS=[
+  {n:"你·2018 本科", t:"real", ax:{subsist:.15,social:.6,geo:.85,meaning:.5,autonomy:.1,change:.7,tempo:.4,intensity:.6}},
+  {n:"你·2025 特教", t:"real", ax:{subsist:.25,social:.75,geo:.5,meaning:.3,autonomy:.25,change:.35,tempo:.5,intensity:.75}},
+  {n:"你·2026 当前", t:"now",  ax:{subsist:.7,social:.4,geo:.5,meaning:.8,autonomy:.7,change:.8,tempo:.8,intensity:.75}},
+  {n:"你·R2 体系落地", t:"sim", ax:{subsist:.75,social:.5,geo:.5,meaning:.8,autonomy:.75,change:.6,tempo:.6,intensity:.75}},
+  {n:"你·R3 低谷高产", t:"sim", ax:{subsist:.65,social:.45,geo:.5,meaning:.75,autonomy:.7,change:.65,tempo:.7,intensity:.6}},
+  {n:"你·R5 殉道",     t:"sim", ax:{subsist:.3,social:.6,geo:.5,meaning:.7,autonomy:.3,change:.8,tempo:.9,intensity:.95}}
+];
+const PAST_FORKS=[
+  {at:"2018–2019", took:"疫情回国、辍学，转入自学 + 跨学科", notTook:"留在 Western 读完心理本科、走学术路线",
+   likely:"体制内受训、长期依附学院，产出偏论文——更接近「学徒/受教者 → 独立学者」。", toward:"独立学者"},
+  {at:"2025–2026", took:"因理念分歧离开特教体制，转独立研究与产品化", notTook:"留在特教体系内升迁、做教研管理",
+   likely:"稳定、有编制，但自主低、时间被买走——更接近「组织攀登者」。", toward:"组织攀登者"},
+  {at:"2026（现在）", took:"多线并行：求职 + 开源 + 产品化三线", notTook:"只押一条主线（如只求职、或只做研究）",
+   likely:"只押外部评审/雇主 → 滑向 R1「押外求认可」；只做研究不收口 → 达芬奇式未竟。", toward:"独立学者"}
+];
+let hotIdx=-1;
+function axMeta(k){ return AXES.find(x=>x.k===k) || {n:k,lo:"",hi:""}; }
+function renderForks(){
+  const host=document.getElementById('forkOut'); if(!host) return;
+  host.innerHTML=PAST_FORKS.map(f=>
+    '<div style="margin-bottom:16px">'
+    +'<div class="mirror-q" style="font-size:13px;color:#e6b422;margin-bottom:8px">🕰 '+esc(f.at)+'</div>'
+    +'<div class="fork-cols">'
+    +'<div class="fork-col took"><div class="fc-h" style="color:#3498db">✓ 你走的</div>'+esc(f.took)+'</div>'
+    +'<div class="fork-col not-took"><div class="fc-h" style="color:#e67e22">↪ 你没走的</div>'+esc(f.notTook)+'</div>'
+    +'</div>'
+    +'<div class="fork-arrow">→ 那条可能更接近「'+esc(f.toward)+'」：'+esc(f.likely)+'</div>'
+    +'</div>'
+  ).join('');
+}
+// =====================================================================
+// 🎮 人生分支模拟 · 互动叙事式密集分支树
+//   节点 = 我的模块 × 人物模块；每点一层 = 做一个选择，走向与结局随之改变。
+//   共 4 层选择（取向 → 靠什么活 → 关键抉择 → 节奏/风险）→ 结局。
+// =====================================================================
+
+// ===== 我的真实生平段（主图的根；替代原手写 ME 树）=====
+const MY_LIFE=[
+ {stage:"2018–2019 · Western 心理本科（疫情辍学）", age:"~19–20",
+  tags:{institution:"out",multi_line:false,divergence:"focus",valley:"unknown",output_form:"study",ending:"n/a",route:"R2",nd_proxy:"single"},
+  situation:"加拿大心理学本科，疫情中断学业", output:"心理学底子 + 跨学科自觉"},
+ {stage:"2025 · 佛山特教教研主任（理念分歧离职）", age:"~25",
+  tags:{institution:"out",multi_line:true,divergence:"broad",valley:"resist",output_form:"both",ending:"leave",route:"R5",nd_proxy:"multi"},
+  situation:"特需儿童 ASD/ADHD 一线，因理念分歧离职", output:"特教一线经验 + 对体制边界的体感"},
+ {stage:"2026 · 独立研究员 + IP 产品化 + 求职（当前）", age:"~26–27", current:true,
+  tags:{institution:"out",multi_line:true,divergence:"broad",valley:"produce",output_form:"both",ending:"legacy",route:"R2",nd_proxy:"multi"},
+  situation:"多线并行（意识论文/GCC/语言类型学/Dream-IEA/LPP/GoL）；体系化强、收口难；求职+ND教练三线",
+  output:"已沉淀 GoL/Nosis/LPP/IEA 四套自建体系，未大规模外放"}
+];
+// ===== 选择点 → 轴坐标（供轴空间投影；设计值非实测）=====
+const SIM_AX={
+ "向内立法则，向外立功":{subsist:.7,social:.4,geo:.5,meaning:.85,autonomy:.8,change:.6,tempo:.6,intensity:.8},
+ "平衡共生，不追极致":{subsist:.55,social:.55,geo:.45,meaning:.55,autonomy:.6,change:.45,tempo:.4,intensity:.45},
+ "把价值押给单一外人 / 平台":{subsist:.3,social:.7,geo:.35,meaning:.5,autonomy:.15,change:.35,tempo:.5,intensity:.85},
+ "独立研究者 / 学术":{subsist:.6,social:.3,geo:.5,meaning:.8,autonomy:.8,change:.6,tempo:.35,intensity:.7},
+ "内容创作变现":{subsist:.65,social:.55,geo:.6,meaning:.65,autonomy:.6,change:.7,tempo:.6,intensity:.75},
+ "产品 / 工具化":{subsist:.7,social:.5,geo:.5,meaning:.6,autonomy:.65,change:.55,tempo:.75,intensity:.85},
+ "教练 / 服务（ND 教练向）":{subsist:.6,social:.7,geo:.5,meaning:.35,autonomy:.55,change:.45,tempo:.5,intensity:.6},
+ "先收口：选一条主线写完":{subsist:.7,social:.45,geo:.5,meaning:.8,autonomy:.75,change:.5,tempo:.5,intensity:.75},
+ "先发散：多条并行不回撤":{subsist:.65,social:.4,geo:.55,meaning:.75,autonomy:.7,change:.8,tempo:.85,intensity:.8},
+ "低耗可持续":{subsist:.55,social:.4,geo:.5,meaning:.6,autonomy:.75,change:.5,tempo:.3,intensity:.25},
+ "高投入冲刺":{subsist:.7,social:.5,geo:.5,meaning:.7,autonomy:.5,change:.7,tempo:.9,intensity:.95}
+};
+const SIM_LV=[
+ {opts:[
+  {via:"向内立法则，向外立功", tag:"R2", trend:"up", mine:"你的体系化本能：把研究/作品兑成对外产出",
+   from:{figure:"王阳明",stageId:"wyw-2"}, peers:[{figure:"孔子",stageId:"kz-3"},{figure:"司马迁",stageId:"sm-3"}]},
+  {via:"平衡共生，不追极致", tag:"R3", trend:"flat", mine:"低能耗体质下，你要的是可持续的节奏",
+   from:{figure:"王维",stageId:"wwei-3"}, peers:[{figure:"蒙田",stageId:"mt-3"},{figure:"陶渊明",stageId:"ty-3"}]},
+  {via:"把价值押给单一外人 / 平台", tag:"R1", trend:"risk", mine:"你「怕湮没」的那部分，在找外部加冕",
+   from:{figure:"韩信",stageId:"hx-3"}, peers:[{figure:"卡夫卡",stageId:"kf-3"}]}
+ ]},
+ {opts:[
+  {via:"独立研究者 / 学术", trend:"up", mine:"多套自建体系：意识论文 / GCC / Dream-IEA / LPP",
+   from:{figure:"斯宾诺莎",stageId:"sbs-2"}, peers:[{figure:"爱因斯坦",stageId:"aie-2"},{figure:"玄奘",stageId:"xz-2"}]},
+  {via:"内容创作变现", trend:"up", mine:"把体系拆成内容，面向读者与听众",
+   from:{figure:"宫崎骏",stageId:"gqj-2"}, peers:[{figure:"鲁迅",stageId:"lx-3"},{figure:"艾米莉·狄金森",stageId:"djs-2"}]},
+  {via:"产品 / 工具化", trend:"up", mine:"把 GoL / WorkBuddy 这类工具产品化",
+   from:{figure:"乔布斯",stageId:"jb-2"}, peers:[{figure:"李时珍",stageId:"lsz-3"}]},
+  {via:"教练 / 服务（ND 教练向）", trend:"flat", mine:"特教一线经验 + ND 亲历",
+   from:{figure:"史铁生",stageId:"sts-2"}, peers:[{figure:"马拉拉",stageId:"ml-2"}]}
+ ]},
+ {opts:[
+  {via:"先收口：选一条主线写完", trend:"up", mine:"你知道自己「收口难」这个已知短板",
+   from:{figure:"王阳明",stageId:"wyw-3"}, peers:[{figure:"曹雪芹",stageId:"cxq-2"}]},
+  {via:"先发散：多条并行不回撤", trend:"risk", mine:"多线并行是强项，也是风险",
+   from:{figure:"达芬奇",stageId:"dv-3"}, peers:[{figure:"徐霞客",stageId:"xxk-2"}]}
+ ]},
+ {opts:[
+  {via:"低耗可持续", trend:"up", mine:"高耗能体质（POTS / SAD / AuDHD）→ 必须低耗才走得远",
+   from:{figure:"史铁生",stageId:"sts-3"}, peers:[{figure:"王夫之",stageId:"wfz-2"},{figure:"艾米莉·狄金森",stageId:"djs-2"}]},
+  {via:"高投入冲刺", trend:"risk", mine:"想靠一波冲击出圈",
+   from:{figure:"尼采",stageId:"nz-3"}, peers:[{figure:"梵高",stageId:"fg-3"}]}
+ ]}
+];
+function simEnding(l1, l4){
+  const a=l1.tag, b=l4.via;
+  if(a==="R2"&&b==="低耗可持续") return {t:"好结局 · 立言立功（可持续）", c:"good", ex:"把体系写好、稳步外放——像王阳明/孔子：低谷想通→立言→立功。"};
+  if(a==="R2"&&b==="高投入冲刺") return {t:"好结局 · 立言立功（但透支）", c:"good", ex:"成了，但像陀思妥耶夫斯基式地以身体换产出。"};
+  if(a==="R3"&&b==="低耗可持续") return {t:"中性 · 平稳自足", c:"mid", ex:"像王维/蒙田：不出局、不极致，长久自守。"};
+  if(a==="R3"&&b==="高投入冲刺") return {t:"中性偏耗 · 稳但不甘", c:"mid", ex:"冲一波又回稳，代价是透支。"};
+  if(a==="R1"&&b==="低耗可持续") return {t:"风险 · 押外落空后回撤", c:"risk", ex:"像卡夫卡：价值押外不成，退回自存（不像林黛玉那样走到底）。"};
+  return {t:"毁灭 · 燃烧殆尽 / 湮没", c:"bad", ex:"像韩信 / 梵高：押外 + 全力燃烧，落空即崩。"};
+}
+let SIM_TREE=null, SIM_NODES=[], SIM_PATH=null, SIM_ZOOM=0.5, SIM_W=0, SIM_H=0, SIM_CUR=null, SIM_VIEW='tree';
+const SIM_NW=170, SIM_NH=36;
+function simLayout(root){
+  const XG=210, PAD=16, STEP=44;
+  let nextY=PAD, maxL=0; SIM_NODES=[];
+  (function walk(n,l,p){
+    n._l=l; n.parent=p; SIM_NODES.push(n); if(l>maxL) maxL=l;
+    const ks=n.children||[];
+    if(!ks.length){ n._cy=nextY+SIM_NH/2; nextY+=STEP; }
+    else { ks.forEach(k=>walk(k,l+1,n)); n._cy=(ks[0]._cy+ks[ks.length-1]._cy)/2; }
+    n._x=PAD+l*XG; n._y=n._cy-SIM_NH/2;
+  })(root,0,null);
+  SIM_W=PAD*2+maxL*XG+SIM_NW; SIM_H=nextY-PAD+SIM_NH/2+PAD;
+}
+function simCls(n){ return 'sn-'+(n.trend||'flat'); }
+function simShort(s){ s=s||''; return s.length>11? s.slice(0,11)+'…':s; }
+function simHTML(){
+  return '<div class="sim-wrap">'
+   +'<p class="sim-hint" style="margin:0 0 6px">互动叙事：<b>每点一个节点 = 你做了一个选择</b>，树往下长一层；每个节点由 <b>你的模块</b> × <b>人物模块</b>（谁的哪一阶段是同类的先例）拼成。走到底给出结局。</p>'
+   +'<div class="sim-ctrl"><span class="sim-stat" id="simStat"></span>'
+   +'<a onclick="simReset()">🔁 重开</a><a onclick="simRandom()">🎲 随机走一条</a>'
+   +'<span>缩放</span><select id="simZoomSel" onchange="simZoom(this.value)"><option value="1">100%</option><option value="0.75">75%</option><option value="0.5" selected>50%</option><option value="0.35">35%</option></select>'
+   +'</div><div id="simTree"></div><div id="simPanel"></div></div>';
+}
+function simRender(){
+  if(!SIM_TREE){ SIM_TREE=simBuild(); simLayout(SIM_TREE); }
+  const host=document.getElementById('simTree'); if(!host) return;
+  const S=SIM_ZOOM;
+  let links='', nodes='';
+  SIM_NODES.forEach(n=>{ (n.children||[]).forEach(k=>{
+    const x1=n._x+SIM_NW, y1=n._cy, x2=k._x, y2=k._cy, mx=(x1+x2)/2;
+    const on = SIM_PATH && SIM_PATH.has(n.id) && SIM_PATH.has(k.id);
+    links+='<path class="sn-edge'+(on?' sn-edge-on':'')+'" d="M'+x1+' '+y1+' C'+mx+' '+y1+' '+mx+' '+y2+' '+x2+' '+y2+'" fill="none" stroke-width="1.4"'+(SIM_PATH&&!on?' opacity="0.2"':'')+'/>';
+  }); });
+  SIM_NODES.forEach((n,i)=>{
+    const inPath = SIM_PATH && SIM_PATH.has(n.id);
+    const dim = SIM_PATH && !inPath;
+    const sub = n.ending ? n.ending.t.split(' · ')[0] : (n.tag||'');
+    nodes+='<g class="'+simCls(n)+(inPath?' sn-on':'')+'" style="cursor:pointer" onclick="simPick('+i+')"'+(dim?' opacity="0.22"':'')+'>'
+      +'<rect x="'+n._x+'" y="'+n._y+'" width="'+SIM_NW+'" height="'+SIM_NH+'" rx="8" stroke-width="1.5"/>'
+      +'<text x="'+(n._x+SIM_NW/2)+'" y="'+(n._y+15)+'" text-anchor="middle" font-size="11">'+esc(simShort(n.via))+'</text>'
+      +(sub?('<text class="sn-sub" x="'+(n._x+SIM_NW/2)+'" y="'+(n._y+28)+'" text-anchor="middle" font-size="10">'+esc(sub)+'</text>'):'')
+      +'</g>';
+  });
+  host.innerHTML='<svg viewBox="0 0 '+SIM_W+' '+SIM_H+'" width="'+Math.round(SIM_W*S)+'" height="'+Math.round(SIM_H*S)+'">'+links+nodes+'</svg>';
+  const st=document.getElementById('simStat');
+  if(st) st.textContent='共 '+SIM_NODES.length+' 个节点 · '+SIM_NODES.filter(x=>x.ending).length+' 条结局路径';
+}
+function simReset(){ SIM_PATH=null; simRender(); const p=document.getElementById('simPanel');
+  if(p) p.innerHTML='<div class="sim-note">👆 点任意节点开始走——每点一次前进一层；或按「🎲 随机走一条」直接看一条完整故事线。</div>'; }
+function simRandom(){ let n=SIM_TREE; while(n.children&&n.children.length){ n=n.children[Math.floor(Math.random()*n.children.length)]; } const i=SIM_NODES.indexOf(n); if(i>=0) simPick(i); }
+function simZoom(v){ SIM_ZOOM=parseFloat(v)||1; simRender(); }
+
+function myPastSignature(){
+  const cur = MY_LIFE.find(n=>n.current) || MY_LIFE[MY_LIFE.length-1];
+  return {current: cur, past: MY_LIFE.filter(n=>n!==cur)};
+}
+function realsAges(){ return MY_LIFE.map(m=>m.age||"").join(" → "); }
+function buildFigureMirror(figure){
+  const f = FIG_LIB[figure]; if(!f) return null;
+  return { type:"me", stage:"我的真实生平（基部）→ 若走「"+figure+"」路线",
+    children: MY_LIFE.map(m=>({type:"real", stage:m.stage, age:m.age, situation:m.situation, output:m.output, current:m.current}))
+      .concat([{ type:"sim", stage:"➡ 接上 "+figure+" 的后续（反事实模拟）", age:f.era,
+        situation:"从你的真实起点出发，走 "+figure+" 的模式",
+        choice:"借 "+figure+" 的模式："+f.arc, output:"模拟走向 → 见下级分支",
+        children:(f.stages||[]).map(st=>({type:"sim", stage:"你→"+st.stage, age:st.age, from:{figure:figure, stageId:st.id}, situation:st.situation, choice:st.choice, output:st.output})) }]) };
+}
+function simOptions(){ const out=[]; SIM_LV.forEach((lv,i)=>lv.opts.forEach(o=>out.push({via:o.via, lv:i+3, ax:SIM_AX[o.via]}))); return out; }
+function simView(v){
+  SIM_VIEW = v;
+  const t=document.getElementById('simTree'), sp=document.getElementById('simSpace');
+  const a=document.getElementById('vTree'), b=document.getElementById('vSpace');
+  if(t) t.style.display = (v==='tree')?'block':'none';
+  if(sp) sp.style.display = (v==='tree')?'none':'block';
+  if(a) a.classList.toggle('on', v==='tree');
+  if(b) b.classList.toggle('on', v==='space');
+  if(v==='space') simSpaceRender();
+}
+function simSpaceRender(){
+  const map=document.getElementById('spaceMap'); if(!map) return;
+  const xs=document.getElementById('axX'), ys=document.getElementById('axY');
+  const xk=(xs&&xs.value)||AXES[0].k, yk=(ys&&ys.value)||AXES[1].k;
+  const W=680,H=430,L=84,R=30,T=24,B=60, pw=W-L-R, ph=H-T-B;
+  const X=v=>L+v*pw, Y=v=>T+(1-v)*ph;
+  const xa=axMeta(xk), ya=axMeta(yk);
+  let s='<svg viewBox="0 0 '+W+' '+H+'" width="100%" role="img">';
+  s+='<rect x="'+L+'" y="'+T+'" width="'+pw+'" height="'+ph+'" fill="none" stroke="#3a3a4a"/>';
+  for(let i=1;i<4;i++){ const gx=L+i*pw/4, gy=T+i*ph/4;
+    s+='<line x1="'+gx+'" y1="'+T+'" x2="'+gx+'" y2="'+(T+ph)+'" stroke="#2a2a36"/>';
+    s+='<line x1="'+L+'" y1="'+gy+'" x2="'+(L+pw)+'" y2="'+gy+'" stroke="#2a2a36"/>'; }
+  s+='<text x="'+(L+pw/2)+'" y="'+(H-16)+'" fill="#bbb" font-size="12" text-anchor="middle">'+esc(xa.n)+'：'+esc(xa.lo)+' → '+esc(xa.hi)+'</text>';
+  s+='<text x="18" y="'+(T+ph/2)+'" fill="#bbb" font-size="12" text-anchor="middle" transform="rotate(-90 18 '+(T+ph/2)+')">'+esc(ya.n)+'：'+esc(ya.lo)+' → '+esc(ya.hi)+'</text>';
+  LIFEPATHS.forEach(p=>{ const cx=X(p.ax[xk]), cy=Y(p.ax[yk]);
+    s+='<circle cx="'+cx+'" cy="'+cy+'" r="6" fill="#534AB7" stroke="#AFA9EC" stroke-width="1"><title>'+esc(p.n)+'</title></circle>';
+    s+='<text x="'+(cx+9)+'" y="'+(cy+4)+'" fill="#cdbcff" font-size="10">'+esc(p.short)+'</text>'; });
+  simOptions().forEach(o=>{ if(!o.ax) return; const cx=X(o.ax[xk]), cy=Y(o.ax[yk]); const on = SIM_CUR && SIM_CUR.opt===o.via;
+    s+='<rect x="'+(cx-5)+'" y="'+(cy-5)+'" width="10" height="10" rx="2" fill="'+(on?'#e6b422':'#2ecc71')+'" stroke="'+(on?'#fff':'#0b1a11')+'" stroke-width="1"><title>'+esc(o.via)+'</title></rect>'; });
+  MY_POINTS.forEach(mp=>{ const cx=X(mp.ax[xk]), cy=Y(mp.ax[yk]);
+    const col = mp.t==='now' ? '#e6b422' : (mp.t==='sim' ? '#2ecc71' : '#3498db');
+    s+='<circle cx="'+cx+'" cy="'+cy+'" r="6" fill="none" stroke="'+col+'" stroke-width="2"><title>'+esc(mp.n)+'</title></circle>';
+    s+='<text x="'+(cx+9)+'" y="'+(cy-8)+'" fill="'+col+'" font-size="10">'+esc(mp.n.replace('你·',''))+'</text>'; });
+  s+='</svg>';
+  map.innerHTML=s;
+}
+function openFigure(name){
+  const box=document.getElementById('figOut'); if(!box) return;
+  box.innerHTML = name ? (figureMirrorHTML(name) + figureCompareHTML(name)) : '';
+}
+function simBuild(){
+  let cid=0;
+  const life = MY_LIFE.map((m,k)=>({id:"n"+(++cid), via:m.stage, mine:m.situation+(m.output?(' ｜ 产出：'+m.output):''),
+    trend:"now", from:null, peers:[], tag:(m.age||"")+(m.current?' ◀ 当前':''), level:k, opt:"", children:[]}));
+  for(let k=0;k<life.length-1;k++) life[k].children.push(life[k+1]);
+  const tail=life[life.length-1];
+  function mk(o, lv){ return {id:"n"+(++cid), via:o.via, mine:o.mine, trend:o.trend, from:o.from, peers:o.peers||[],
+    tag:o.tag||"", level:lv, opt:o.via, children:[]}; }
+  SIM_LV[0].opts.forEach(o1=>{ const n1=mk(o1,3);
+    SIM_LV[1].opts.forEach(o2=>{ const n2=mk(o2,4);
+      SIM_LV[2].opts.forEach(o3=>{ const n3=mk(o3,5);
+        SIM_LV[3].opts.forEach(o4=>{ const n4=mk(o4,6); n4.ending=simEnding(o1,o4); n3.children.push(n4); });
+        n2.children.push(n3); });
+      n1.children.push(n2); });
+    tail.children.push(n1); });
+  return life[0];
+}
+function simPick(i){
+  const n=SIM_NODES[i]; if(!n) return;
+  SIM_CUR=n;
+  const chain=[]; (function up(x){ if(x){ chain.unshift(x); up(x.parent); } })(n);
+  SIM_PATH=new Set(chain.map(x=>x.id));
+  simRender();
+  if(SIM_VIEW==='space') simSpaceRender();
+  const box=document.getElementById('simPanel'); if(!box) return;
+  const srcOf=(f,id)=>{ const m=(typeof figureStageRef==='function')?figureStageRef(f,id):null; if(!m) return '';
+    return '<div class="sim-src"><b>模式来源 · 人物模块</b>　'+esc(f)+' · '+esc(m.stage)+(m.age?('（'+esc(m.age)+'）'):'')
+      +(m.situation?'<div class="sim-ci">处境 '+esc(m.situation)+'</div>':'')
+      +(m.choice?'<div class="sim-ci">选择 '+esc(m.choice)+'</div>':'')
+      +(m.output?'<div class="sim-ci">产出 '+esc(m.output)+'</div>':'')
+      +'<div class="sim-note"><a id="simFigLink" style="color:#7f77dd;cursor:pointer">→ 打开他的镜像问答 / 对照版</a></div></div>'; };
+  let h='<div class="sim-panel"><div class="sim-path"><b>你的路径</b>　'+chain.map(x=>esc(x.via)).join(' <span class="sim-arrow">→</span> ')+'</div>';
+  h+='<div class="sim-row"><b>当前节点</b>'+esc(n.via)+(n.tag?(' <span class="chip">'+esc(n.tag)+'</span>'):'')+'</div>';
+  if(n.mine) h+='<div class="sim-row"><b>你的模块</b>'+esc(n.mine)+'</div>';
+  if(n.from) h+=srcOf(n.from.figure, n.from.stageId);
+  if(n.peers&&n.peers.length) h+='<div class="sim-peers"><b>并列先例（同类人物模块）</b>'+n.peers.map(p=>{ const m=(typeof figureStageRef==='function')?figureStageRef(p.figure,p.stageId):null; return '<span class="chip">'+esc(p.figure)+(m?('·'+esc(m.stage)):'')+'</span>'; }).join('')+'</div>';
+  if(n.ending) h+='<div class="sim-end '+n.ending.c+'"><b>结局</b>'+esc(n.ending.t)+'<div class="sim-note">'+esc(n.ending.ex)+'</div></div>';
+  else h+='<div class="sim-note">继续点下一层 →</div>';
+  h+='</div>';
+  box.innerHTML=h;
+  const lk=document.getElementById('simFigLink');
+  if(lk && n.from) lk.onclick=function(){ openFigure(n.from.figure); };
+}
+(function(){
+  const axX=document.getElementById('axX'), axY=document.getElementById('axY');
+  if(axX){ AXES.forEach((a,i)=>{ const o=document.createElement('option'); o.value=a.k; o.textContent=a.n; if(i===0)o.selected=true; axX.appendChild(o); }); }
+  if(axY){ AXES.forEach((a,i)=>{ const o=document.createElement('option'); o.value=a.k; o.textContent=a.n; if(i===1)o.selected=true; axY.appendChild(o); }); }
+  const fs=document.getElementById('figSel');
+  if(fs){ Object.keys(FIG_LIB).forEach(n=>{ const o=document.createElement('option'); o.value=n; o.textContent=n+'（'+FIG_LIB[n].route+'）'; fs.appendChild(o); }); }
+  renderForks(); simInit();
+})();
+function simInit(){
+  const h=document.getElementById('simHost'); if(h&&!h.innerHTML) h.innerHTML=simHTML();
+  simRender();
+  const p=document.getElementById('simPanel');
+  if(p && !p.innerHTML) p.innerHTML='<div class="sim-note">👆 点任意节点开始走——每点一次前进一层；或按「🎲 随机走一条」直接看一条完整故事线。</div>';
+}
+
+
+</script>
+</body>
+</html>
